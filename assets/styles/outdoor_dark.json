@@ -1,0 +1,73 @@
+{
+  "version": 8,
+  "name": "TrailPulse Outdoor Dark Topo",
+  "metadata": {
+    "trailpulse:version": "1.0.0",
+    "trailpulse:theme": "tactical_dark_oled"
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "pmtiles://assets/offline_tiles/region.pmtiles"
+    },
+    "terrain_dem": {
+      "type": "raster-dem",
+      "tiles": ["assets/offline_tiles/dem/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "maxzoom": 14
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#0b1326"
+      }
+    },
+    {
+      "id": "hillshade",
+      "type": "hillshade",
+      "source": "terrain_dem",
+      "paint": {
+        "hillshade-shadow-color": "#060e20",
+        "hillshade-highlight-color": "#222a3d",
+        "hillshade-exaggeration": 0.6
+      }
+    },
+    {
+      "id": "contour_lines",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "contour",
+      "paint": {
+        "line-color": "#454934",
+        "line-width": 0.8,
+        "line-opacity": 0.45
+      }
+    },
+    {
+      "id": "cycling_trails",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "path", "track", "cycleway"],
+      "paint": {
+        "line-color": "#ccf22a",
+        "line-width": 2.5
+      }
+    },
+    {
+      "id": "hiking_trails",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["==", "class", "footway"],
+      "paint": {
+        "line-color": "#ffb868",
+        "line-width": 1.5,
+        "line-dasharray": [2, 2]
+      }
+    }
+  ]
+}

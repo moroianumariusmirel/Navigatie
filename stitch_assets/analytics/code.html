@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Chivo:ital,wght@0,400;0,700;0,900;1,900&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "tertiary-container": "#ffddbb", "on-tertiary-fixed-variant": "#673d00", "surface": "#0b1326", "tertiary-fixed": "#ffddbb", "secondary-fixed": "#7df4ff", "on-primary": "#2a3400", "on-error": "#690005", "secondary-container": "#00eefc", "surface-container-high": "#222a3d", "surface-container-lowest": "#060e20", "secondary-fixed-dim": "#00dbe9", "on-primary-fixed": "#171e00", "inverse-on-surface": "#283044", "surface-container-low": "#131b2e", "error": "#ffb4ab", "surface-tint": "#b1d400", "surface-bright": "#31394d", "primary-fixed-dim": "#b1d400", "primary-container": "#ccf22a", "on-tertiary": "#482900", "surface-container-highest": "#2d3449", "outline-variant": "#454934", "surface-variant": "#2d3449", "inverse-surface": "#dae2fd", "on-background": "#dae2fd", "tertiary": "#ffffff", "on-surface-variant": "#c5c9ad", "on-secondary-fixed-variant": "#004f54", "on-secondary-container": "#00686f", "surface-dim": "#0b1326", "on-tertiary-container": "#905700", "outline": "#8f937a", "error-container": "#93000a", "primary-fixed": "#ccf22a", "on-secondary-fixed": "#002022", "background": "#0b1326", "surface-container": "#171f33", "on-secondary": "#00363a", "on-primary-fixed-variant": "#3e4c00", "on-primary-container": "#596c00", "on-surface": "#dae2fd", "secondary": "#d3fbff", "inverse-primary": "#546500", "on-tertiary-fixed": "#2b1700", "on-error-container": "#ffdad6", "tertiary-fixed-dim": "#ffb868", "primary": "#ffffff" }, borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, spacing: { "space-2xs": "0.125rem", "gutter-cockpit": "0.75rem", "space-xs": "0.25rem", "space-base": "1rem", "margin-mobile": "1rem", "space-sm": "0.5rem", "space-md": "0.75rem", "margin-desktop": "2rem", "space-lg": "1.5rem", "space-2xl": "3rem", "space-xl": "2rem" }, fontFamily: { "headline-sm": ["Chivo"], "label-caps": ["JetBrains Mono"], "label-sm": ["Inter"], "data-metric-xl": ["JetBrains Mono"], "headline-lg": ["Chivo"], "display-hero-mobile": ["Chivo"], "body-lg": ["Inter"], "data-metric-lg": ["JetBrains Mono"], "body-md": ["Inter"], "headline-lg-mobile": ["Chivo"], "display-hero": ["Chivo"], "data-metric-md": ["JetBrains Mono"], "headline-md": ["Chivo"], "body-sm": ["Inter"] }, fontSize: { "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "700" }], "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "600" }], "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "600" }], "data-metric-xl": ["42px", { "lineHeight": "44px", "letterSpacing": "-0.04em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "800" }], "display-hero-mobile": ["36px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "900" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }], "data-metric-lg": ["28px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-lg-mobile": ["26px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "800" }], "display-hero": ["48px", { "lineHeight": "52px", "letterSpacing": "-0.03em", "fontWeight": "900" }], "data-metric-md": ["18px", { "lineHeight": "22px", "fontWeight": "600" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md flex flex-col min-h-screen antialiased selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_4px_20px_rgba(6,14,32,0.6)]"><div class="h-16 px-space-base flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="TrailPulse Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X0ec0Cf1DF8mI1jv_fAPYvjg9LjsGY_EEXvGxqinuTz04_QPOG-p7r5emLVFckdNopw8M-8JSPra9kqC50JhHP2U4whx7aaLihhLt6NLMGZ_Vb9MszwYYQabWC47rlpML_ZXaivSL6Q_BLbHp1OVBV_KivkyYsaulVj6ui5dRIexUJZwS95gttVncnThf5jPEE8JnhFIoAozWBvfDCdatDirWyRc8ghDTdKIb03Y7dUPNHSRKURDSZs3g"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-primary leading-none uppercase">TrailPulse</span><span class="font-label-caps text-label-caps text-on-surface-variant uppercase mt-space-2xs">Telemetry OS</span></div></div><div class="flex items-center gap-space-base"><span class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-tight hidden sm:block">Analytics</span><div class="flex items-center gap-space-sm"><div class="w-11 h-11 flex items-center justify-center rounded-full bg-surface-container-high"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-container/40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChuCRRbF7cy0rtxQ72CYMuZfj9GcnD0zYLt8g3XEI1ONdSJJ6ehE0LWe11Viui4Vf3F_Qv6_chH52Pv4C24B1qnqEz11lcL9ZSe8dXE-2xlVMxUPQCdV4jaXRqhNcWaMRlk8iDT4cTMadzn6yhnN2Gk2hEriLOeWDzfrmOGGfcFGevERKu3Qy-G-zySm5CzyjpqMdPF8q0YQ3hQhhrZJ7T_Qsj-IAqY1zE2R8sq4gj5ut2Mtc-ZKuG"/></div></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen"><div class="flex flex-col w-full px-space-base gap-space-lg pb-space-2xl">
+<!-- Dynamic Mission Debrief Banner -->
+<div class="relative w-full rounded-xl bg-surface-container-high overflow-hidden shadow-xl">
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-high via-surface-container-high/60 to-transparent z-10"></div>
+<div class="bg-cover bg-center w-full h-44 absolute inset-0 opacity-40" data-alt="Cinematic atmospheric view of a gravel rider covered in fine dust standing atop a misty Black Forest alpine pass at golden twilight, rugged pine trees shrouded in clouds, tactical carbon bike leaning nearby, ultra-detailed outdoor sports photography with obsidian shadows and hyper-vibrant yellow-green accents" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBgMWFwjF__nSShKl0K98GvotfGg8nywMBMQwvU-BiG6rwhKlM0zcI2-TLBBKDYf2BuKcQc6nR-YlZ77R3urYHowiTb35qwc0TvYUjW9C2w3AlPCac3A8cZAE7_GWIGTuarnkVeRzsGiVhpnYPu43-MqG6Gpzvl6Rj_l-V31di1-y57DWxmA1m5Vs0lAM3xy4iqz8UJCc41DScqmfxI4xazi21JLfPh7fBYsrf9dizzC1ivygUzC7wd')"></div>
+<div class="relative z-20 p-space-base flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center gap-space-xs px-space-sm py-space-2xs rounded-full bg-primary-container text-on-primary font-label-caps text-label-caps">
+<span class="w-1.5 h-1.5 rounded-full bg-on-primary animate-ping"></span>
+          MISSION COMPLETE
+        </span>
+<span class="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-space-2xs">
+<span class="material-symbols-outlined text-sm">schedule</span>
+          TODAY 09:42 CEST
+        </span>
+</div>
+<div class="flex flex-col">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight">Black Forest Alpine Gravel Crossing</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-space-xs mt-space-2xs">
+<span class="material-symbols-outlined text-sm text-secondary-fixed">navigation</span>
+          Baden-Baden to Hornisgrinde Traverse (Tier-1 Terrain)
+        </p>
+</div>
+<!-- Quick Metrics Strip -->
+<div class="grid grid-cols-4 gap-space-xs mt-space-xs pt-space-xs bg-surface-container-lowest/80 rounded-lg p-space-sm backdrop-blur-md">
+<div class="flex flex-col items-center justify-center text-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Time</span>
+<span class="font-data-metric-md text-data-metric-md text-primary font-bold">2h 48m</span>
+</div>
+<div class="flex flex-col items-center justify-center text-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Distance</span>
+<span class="font-data-metric-md text-data-metric-md text-secondary-fixed font-bold">51.4<span class="text-xs font-normal ml-0.5">km</span></span>
+</div>
+<div class="flex flex-col items-center justify-center text-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Ascent</span>
+<span class="font-data-metric-md text-data-metric-md text-primary-fixed font-bold">+1,240<span class="text-xs font-normal ml-0.5">m</span></span>
+</div>
+<div class="flex flex-col items-center justify-center text-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Burn</span>
+<span class="font-data-metric-md text-data-metric-md text-tertiary-fixed font-bold">784<span class="text-xs font-normal ml-0.5">kcal</span></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Exertion & Strain Cockpit Gauge -->
+<div class="w-full rounded-xl bg-surface-container p-space-base flex flex-col gap-space-md shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary-container">vital_signs</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Demands &amp; Stress Score</span>
+</div>
+<span class="px-space-xs py-space-2xs rounded bg-surface-container-highest text-primary-container font-label-caps text-label-caps">TIER 4 EXERTION</span>
+</div>
+<div class="flex items-center gap-space-base">
+<!-- Radial Gauge Dial -->
+<div class="relative w-24 h-24 flex items-center justify-center shrink-0">
+<svg class="w-full h-full -rotate-90" viewbox="0 0 100 100">
+<circle class="text-surface-container-highest" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-primary-container" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" stroke-dasharray="264" stroke-dashoffset="21" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-data-metric-lg text-data-metric-lg text-primary leading-none">92</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant text-[9px]">/ 100</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-2xs min-w-0">
+<span class="font-headline-sm text-headline-sm text-primary truncate">High Endurance Threshold</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sustained aerobic stress with 38 minutes spent above 88% HR Max on technical switchbacks.</p>
+<div class="flex items-center gap-space-sm mt-space-xs">
+<span class="inline-flex items-center gap-1 font-label-caps text-label-caps text-secondary-fixed">
+<span class="material-symbols-outlined text-xs">trending_up</span> TRIMP 248
+          </span>
+<span class="inline-flex items-center gap-1 font-label-caps text-label-caps text-tertiary-fixed">
+<span class="material-symbols-outlined text-xs">speed</span> EPOC 142 mL
+          </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Dual-Axis Telemetry: Elevation vs Heart Rate Chart -->
+<div class="w-full rounded-xl bg-surface-container p-space-base flex flex-col gap-space-md shadow-md">
+<div class="flex flex-col gap-space-2xs">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Correlation Matrix</span>
+<div class="flex items-center gap-space-sm text-[10px] font-label-caps">
+<span class="flex items-center gap-1 text-primary-container">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span> Elev (m)
+          </span>
+<span class="flex items-center gap-1 text-error">
+<span class="w-2 h-2 rounded-full bg-error"></span> HR (bpm)
+          </span>
+</div>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-primary">Elevation &amp; Heart Rate Dynamics</h2>
+</div>
+<!-- SVG Terrain & HR graph with zone shading -->
+<div class="relative w-full h-52 bg-surface-container-lowest rounded-lg p-space-sm overflow-hidden flex flex-col justify-end">
+<!-- Interactive Crosshair Overlay & Scrubber Metric Display -->
+<div class="absolute top-2 left-1/2 -translate-x-1/2 px-space-sm py-space-2xs rounded bg-surface-container-high/95 text-on-surface text-center flex items-center gap-space-md shadow-lg backdrop-blur-md pointer-events-none" id="telemetry-pill">
+<div class="flex flex-col">
+<span class="font-label-caps text-[9px] text-on-surface-variant">KM 34.2</span>
+<span class="font-label-caps text-label-caps text-primary-container font-bold">1,164 m</span>
+</div>
+<div class="w-px h-6 bg-surface-container-highest"></div>
+<div class="flex flex-col">
+<span class="font-label-caps text-[9px] text-error">ZONE 4 (THR)</span>
+<span class="font-label-caps text-label-caps text-error font-bold">174 bpm</span>
+</div>
+<div class="w-px h-6 bg-surface-container-highest"></div>
+<div class="flex flex-col">
+<span class="font-label-caps text-[9px] text-on-surface-variant">GRADE</span>
+<span class="font-label-caps text-label-caps text-primary font-bold">+12.4%</span>
+</div>
+</div>
+<!-- Scrubber Guide Line -->
+<div class="absolute top-0 bottom-0 left-1/2 w-px bg-primary-container/40 pointer-events-none"></div>
+<svg class="w-full h-40 overflow-visible" preserveaspectratio="none" viewbox="0 0 320 140">
+<defs>
+<lineargradient id="elevFill" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#ccf22a" stop-opacity="0.35"></stop>
+<stop offset="100%" stop-color="#ccf22a" stop-opacity="0.0"></stop>
+</lineargradient>
+<lineargradient id="hrLineGrad" x1="0" x2="1" y1="0" y2="0">
+<stop offset="0%" stop-color="#00eefc"></stop>
+<stop offset="45%" stop-color="#ffddbb"></stop>
+<stop offset="70%" stop-color="#ffb4ab"></stop>
+<stop offset="90%" stop-color="#ffb4ab"></stop>
+<stop offset="100%" stop-color="#00eefc"></stop>
+</lineargradient>
+</defs>
+<!-- Horizontal Zone Guideline grids -->
+<line class="text-surface-container-highest/60" stroke="currentColor" stroke-dasharray="3,3" x1="0" x2="320" y1="35" y2="35"></line>
+<line class="text-surface-container-highest/60" stroke="currentColor" stroke-dasharray="3,3" x1="0" x2="320" y1="70" y2="70"></line>
+<line class="text-surface-container-highest/60" stroke="currentColor" stroke-dasharray="3,3" x1="0" x2="320" y1="105" y2="105"></line>
+<!-- Elevation Area Contour -->
+<polygon fill="url(#elevFill)" points="0,120 20,115 45,108 75,98 100,102 135,80 160,75 190,40 220,25 240,20 270,45 295,90 320,110 320,140 0,140"></polygon>
+<polyline fill="none" points="0,120 20,115 45,108 75,98 100,102 135,80 160,75 190,40 220,25 240,20 270,45 295,90 320,110" stroke="#ccf22a" stroke-linecap="round" stroke-width="2"></polyline>
+<!-- HR Pulse Path Overlay -->
+<polyline fill="none" points="0,100 20,95 45,88 75,82 100,75 135,62 160,54 190,26 220,18 240,14 270,30 295,78 320,92" stroke="url(#hrLineGrad)" stroke-linecap="round" stroke-width="2.5"></polyline>
+<!-- Summit Pin Flag -->
+<circle cx="240" cy="20" fill="#ccf22a" r="4"></circle>
+<circle cx="240" cy="14" fill="#ffb4ab" r="3"></circle>
+</svg>
+<!-- Horizontal Axis Legend -->
+<div class="flex justify-between items-center text-[10px] font-label-caps text-on-surface-variant pt-2">
+<span>0 km</span>
+<span>15 km</span>
+<span>30 km (Peak 1,164m)</span>
+<span>45 km</span>
+<span>51.4 km</span>
+</div>
+</div>
+<!-- Heart Rate Zone Breakdown Chips -->
+<div class="grid grid-cols-3 gap-space-xs pt-space-2xs">
+<div class="p-space-sm rounded-lg bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-[10px] text-secondary-fixed">Z2 ENDURANCE</span>
+<span class="font-data-metric-md text-data-metric-md text-primary mt-1">1h 12m</span>
+<span class="text-[10px] text-on-surface-variant font-label-caps">128-145 BPM</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-[10px] text-tertiary-fixed">Z4 THRESHOLD</span>
+<span class="font-data-metric-md text-data-metric-md text-primary mt-1">54m</span>
+<span class="text-[10px] text-on-surface-variant font-label-caps">162-175 BPM</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-[10px] text-error">Z5 VO2 MAX</span>
+<span class="font-data-metric-md text-data-metric-md text-primary mt-1">22m</span>
+<span class="text-[10px] text-on-surface-variant font-label-caps">&gt; 176 BPM</span>
+</div>
+</div>
+</div>
+<!-- Surface Texture Breakdown -->
+<div class="w-full rounded-xl bg-surface-container p-space-base flex flex-col gap-space-md shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary-fixed">layers</span>
+<h2 class="font-headline-sm text-headline-sm text-primary">Surface Composition</h2>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">TELEMETRY SYNCED</span>
+</div>
+<!-- Stacked Surface Composition Bar -->
+<div class="w-full h-3 rounded-full bg-surface-container-lowest overflow-hidden flex">
+<div class="h-full bg-primary-container" style="width: 62.2%;"></div>
+<div class="h-full bg-secondary-container" style="width: 16.4%;"></div>
+<div class="h-full bg-surface-container-highest" style="width: 21.4%;"></div>
+</div>
+<div class="flex flex-col gap-space-sm">
+<!-- Gravel Row -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-high">
+<div class="flex items-center gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-primary-container shrink-0"></div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-[15px] text-primary">Forest Gravel &amp; Hardpack</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Sector B5-Nordic Trail</span>
+</div>
+</div>
+<div class="text-right flex flex-col">
+<span class="font-data-metric-md text-data-metric-md text-primary font-bold">32.0 km</span>
+<span class="font-label-caps text-[11px] text-primary-container">21.2 km/h avg</span>
+</div>
+</div>
+<!-- Technical Trail Row -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-high">
+<div class="flex items-center gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-secondary-container shrink-0"></div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-[15px] text-primary">Technical Singletrack &amp; Roots</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Granite Slab Switchbacks</span>
+</div>
+</div>
+<div class="text-right flex flex-col">
+<span class="font-data-metric-md text-data-metric-md text-primary font-bold">8.4 km</span>
+<span class="font-label-caps text-[11px] text-secondary-fixed">11.6 km/h avg</span>
+</div>
+</div>
+<!-- Tarmac Row -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-high">
+<div class="flex items-center gap-space-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-surface-container-highest shrink-0"></div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-[15px] text-primary">Connecting Alpine Tarmac</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Schwarzwaldhochstraße Link</span>
+</div>
+</div>
+<div class="text-right flex flex-col">
+<span class="font-data-metric-md text-data-metric-md text-primary font-bold">11.0 km</span>
+<span class="font-label-caps text-[11px] text-on-surface-variant">31.4 km/h avg</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Key Climbs & Mountain Pass Segments -->
+<div class="w-full rounded-xl bg-surface-container p-space-base flex flex-col gap-space-md shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary-container">landscape</span>
+<h2 class="font-headline-sm text-headline-sm text-primary">Key Segment Highlights</h2>
+</div>
+<span class="px-space-xs py-space-2xs rounded bg-primary-container text-on-primary font-label-caps text-label-caps font-bold">
+        NEW PR
+      </span>
+</div>
+<!-- Segment Highlight Card -->
+<div class="rounded-lg bg-surface-container-high p-space-base flex flex-col gap-space-sm relative overflow-hidden">
+<div class="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-primary-container/5 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-tertiary-fixed text-lg">workspace_premium</span>
+<span class="font-headline-sm text-headline-sm text-primary">Hornisgrinde West Wall</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Cat 1 HC Gravel Incline • Unpaved</span>
+</div>
+<span class="font-data-metric-md text-data-metric-md text-primary-container font-bold">19m 42s</span>
+</div>
+<!-- Segment Metric Grid -->
+<div class="grid grid-cols-3 gap-space-sm py-space-xs my-space-2xs bg-surface-container-lowest/60 rounded p-space-sm">
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant">DISTANCE</span>
+<span class="font-data-metric-sm text-data-metric-md text-primary font-bold">4.2 km</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant">AVG GRADIENT</span>
+<span class="font-data-metric-sm text-data-metric-md text-error font-bold">10.2%</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant">MAX WALL</span>
+<span class="font-data-metric-sm text-data-metric-md text-error font-bold">18.6%</span>
+</div>
+</div>
+<!-- Mini Segment Gradient Step visualizer -->
+<div class="flex flex-col gap-space-2xs">
+<div class="flex justify-between items-center text-[10px] font-label-caps text-on-surface-variant">
+<span>GRADIENT SECTORS</span>
+<span class="text-primary-container font-bold">-1m 18s vs PREVIOUS PR</span>
+</div>
+<div class="flex gap-1 h-3 rounded overflow-hidden">
+<div class="bg-primary-container h-full rounded-sm flex-1" title="Sector 1: 7.5%"></div>
+<div class="bg-tertiary-fixed h-full rounded-sm flex-1" title="Sector 2: 9.8%"></div>
+<div class="bg-error h-full rounded-sm flex-1" title="Sector 3: 14.2%"></div>
+<div class="bg-error h-full rounded-sm flex-1" title="Sector 4: 18.6%"></div>
+<div class="bg-tertiary-fixed h-full rounded-sm flex-1" title="Sector 5: 8.1%"></div>
+</div>
+</div>
+</div>
+<!-- Second Secondary Segment -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-high">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-lg">downhill_skiing</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-[15px] text-primary">Mummelsee Technical Descent</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">3.1 km • -9.4% Avg Grade</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-data-metric-md text-data-metric-md text-secondary-fixed font-bold">48.2 km/h</span>
+<span class="block font-label-caps text-[10px] text-on-surface-variant">TOP SPEED</span>
+</div>
+</div>
+</div>
+<!-- Photo Log Gallery Placeholders -->
+<div class="w-full rounded-xl bg-surface-container p-space-base flex flex-col gap-space-md shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary-fixed">photo_library</span>
+<h2 class="font-headline-sm text-headline-sm text-primary">Waypoint Photolog</h2>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">3 CAPTURED</span>
+</div>
+<div class="grid grid-cols-3 gap-space-xs">
+<div class="relative h-28 rounded-lg overflow-hidden group">
+<img class="w-full h-full object-cover" data-alt="High quality extreme close up of a carbon gravel bicycle wheel encrusted in dried sandstone dust and dark wet pine needle mulch after an intense mountain climb, dramatic side directional sunlight and sharp focus on tire treads" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDi-yrrZaeOI70WxAWpszfyQWQ1XFTXbT9JSBdcKMMW22cGuFg65CPbyJwte3WyjjEpCBefG8HUwnCyyAWovJx4FoQetmilNQGmdHHNjpArjSGPM21ww72fBuKGUwXXDOY5nOLpYa6l01z_ZguuuK0OjLtxck5mmcpnL_zhauEA1DvuBzcJvCqs1JKO0R0HgAHEs5zu2Jr2yzxagfk47a6hEO47hGlA5KoOQiIUJyYU83NHuV2puERz"/>
+<div class="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-surface-container-lowest/80 font-label-caps text-[9px] text-primary">KM 14.1</div>
+</div>
+<div class="relative h-28 rounded-lg overflow-hidden group">
+<img class="w-full h-full object-cover" data-alt="A vast alpine panorama looking down over cascading German mountain ridge lines covered in deep green spruce trees with sunbeams breaking through mist, technical gravel road winding along the ridgeline in the foreground" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCx-QWseLa26OBVkExvEuaENCKqmVRC_y0v4-wuuS3M0xQI3U2ByV6Yai3lI6yceotQAnFFKkp8PwWh1lPqRkYnr5afFERk9hrtHH19Ypj0wuhQVr5Iqs9uULLqWiVScN_zupsnKm0CCe73KN6mUbof-6nZ9yKM3y7KDQPKwHE8-ryNEGCxJQt5RjOTodvaRNVFt3ZSAFE0vXXYyfzmRComiUDvH_3F3B6BZ-XCxcLnbVWOIcIhzeYC"/>
+<div class="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-surface-container-lowest/80 font-label-caps text-[9px] text-primary">KM 34.8</div>
+</div>
+<div class="relative h-28 rounded-lg overflow-hidden group">
+<img class="w-full h-full object-cover" data-alt="Solo endurance athlete sitting on a wooden bench beside an ancient stone tower at the peak of Hornisgrinde, helmet off, holding a recovery hydration flask with deep blue twilight horizon in background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATacb_CmohiTl5XqOkcFoe0HeGfZpmyw1o6cCD6fsI4q_uRvA-ERdlObQ472gCOagTIxI1f2KPQjUdlXDw5JeXz-CVQTnnxUS6Wym6oRqfRIsiY5kaAXOWhVBteB4atMeMOU-WcCsD_SBC1aIfOpVwq-E2mISWrXHTk58DPyqyNe7LDeoGUxJUX2birbrSK5pLHmcA3v7lL9IyQS_rQulE2EJ8wDWpq3Y5ejngI3krLX75adjCsn2P"/>
+<div class="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-surface-container-lowest/80 font-label-caps text-[9px] text-primary">KM 51.2</div>
+</div>
+</div>
+</div>
+<!-- Tactical Export & Synchronization Actions -->
+<div class="w-full flex flex-col gap-space-sm pt-space-xs">
+<!-- Strava / Garmin Cloud Push -->
+<button class="w-full min-h-[52px] rounded-lg bg-primary-container text-on-primary font-headline-sm text-headline-sm flex items-center justify-center gap-space-sm px-space-base shadow-lg transition-transform active:scale-[0.98]" id="sync-btn" onclick="triggerSyncState()">
+<span class="material-symbols-outlined" id="sync-icon">cloud_upload</span>
+<span id="sync-label">SYNC TO STRAVA / GARMIN</span>
+</button>
+<!-- Secondary Ghost Actions -->
+<div class="grid grid-cols-2 gap-space-sm">
+<button class="min-h-[48px] rounded-lg bg-surface-container-high text-primary font-label-caps text-label-caps uppercase flex items-center justify-center gap-space-xs px-space-sm hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-base text-secondary-fixed">download_for_offline</span>
+        Save Offline GPX
+      </button>
+<button class="min-h-[48px] rounded-lg bg-surface-container-high text-primary font-label-caps text-label-caps uppercase flex items-center justify-center gap-space-xs px-space-sm hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-base text-tertiary-fixed">share</span>
+        Share Ride Story
+      </button>
+</div>
+</div>
+</div>
+<script>
+  function triggerSyncState() {
+    const btn = document.getElementById('sync-btn');
+    const icon = document.getElementById('sync-icon');
+    const label = document.getElementById('sync-label');
+
+    if (!btn || !icon || !label) return;
+
+    icon.textContent = 'autorenew';
+    icon.classList.add('animate-spin');
+    label.textContent = 'SYNCHRONIZING TELEMETRY...';
+    btn.classList.replace('bg-primary-container', 'bg-surface-container-highest');
+    btn.classList.replace('text-on-primary', 'text-primary');
+
+    setTimeout(() => {
+      icon.classList.remove('animate-spin');
+      icon.textContent = 'check_circle';
+      label.textContent = 'TELEMETRY COMMITTED TO CLOUD';
+      btn.classList.replace('bg-surface-container-highest', 'bg-secondary-container');
+      btn.classList.replace('text-primary', 'text-on-secondary-container');
+    }, 1200);
+  }
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(6,14,32,0.8)]" data-active-classes="text-primary-container bg-surface-container-high/80"><div class="flex justify-around items-center h-20 px-space-sm"><a class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg text-on-surface-variant transition-all hover:text-on-surface" data-path="explore" href="#"><span class="material-symbols-outlined text-2xl">explore</span><span class="font-label-caps text-label-caps uppercase">Explore</span></a><a class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg text-on-surface-variant transition-all hover:text-on-surface" data-path="planner" href="#"><span class="material-symbols-outlined text-2xl">altitude</span><span class="font-label-caps text-label-caps uppercase">Planner</span></a><a class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg text-on-surface-variant transition-all hover:text-on-surface" data-path="cockpit" href="#"><span class="material-symbols-outlined text-2xl">speed</span><span class="font-label-caps text-label-caps uppercase">Cockpit</span></a><a aria-current="page" class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg transition-all text-primary-container bg-surface-container-high/80" data-path="analytics" href="#"><span class="material-symbols-outlined text-2xl">query_stats</span><span class="font-label-caps text-label-caps uppercase">Stats</span></a></div></nav></body></html>

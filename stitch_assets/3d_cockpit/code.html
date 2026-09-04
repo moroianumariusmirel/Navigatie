@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Chivo:ital,wght@0,400;0,700;0,900;1,900&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "tertiary-container": "#ffddbb", "on-tertiary-fixed-variant": "#673d00", "surface": "#0b1326", "tertiary-fixed": "#ffddbb", "secondary-fixed": "#7df4ff", "on-primary": "#2a3400", "on-error": "#690005", "secondary-container": "#00eefc", "surface-container-high": "#222a3d", "surface-container-lowest": "#060e20", "secondary-fixed-dim": "#00dbe9", "on-primary-fixed": "#171e00", "inverse-on-surface": "#283044", "surface-container-low": "#131b2e", "error": "#ffb4ab", "surface-tint": "#b1d400", "surface-bright": "#31394d", "primary-fixed-dim": "#b1d400", "primary-container": "#ccf22a", "on-tertiary": "#482900", "surface-container-highest": "#2d3449", "outline-variant": "#454934", "surface-variant": "#2d3449", "inverse-surface": "#dae2fd", "on-background": "#dae2fd", "tertiary": "#ffffff", "on-surface-variant": "#c5c9ad", "on-secondary-fixed-variant": "#004f54", "on-secondary-container": "#00686f", "surface-dim": "#0b1326", "on-tertiary-container": "#905700", "outline": "#8f937a", "error-container": "#93000a", "primary-fixed": "#ccf22a", "on-secondary-fixed": "#002022", "background": "#0b1326", "surface-container": "#171f33", "on-secondary": "#00363a", "on-primary-fixed-variant": "#3e4c00", "on-primary-container": "#596c00", "on-surface": "#dae2fd", "secondary": "#d3fbff", "inverse-primary": "#546500", "on-tertiary-fixed": "#2b1700", "on-error-container": "#ffdad6", "tertiary-fixed-dim": "#ffb868", "primary": "#ffffff" }, borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, spacing: { "space-2xs": "0.125rem", "gutter-cockpit": "0.75rem", "space-xs": "0.25rem", "space-base": "1rem", "margin-mobile": "1rem", "space-sm": "0.5rem", "space-md": "0.75rem", "margin-desktop": "2rem", "space-lg": "1.5rem", "space-2xl": "3rem", "space-xl": "2rem" }, fontFamily: { "headline-sm": ["Chivo"], "label-caps": ["JetBrains Mono"], "label-sm": ["Inter"], "data-metric-xl": ["JetBrains Mono"], "headline-lg": ["Chivo"], "display-hero-mobile": ["Chivo"], "body-lg": ["Inter"], "data-metric-lg": ["JetBrains Mono"], "body-md": ["Inter"], "headline-lg-mobile": ["Chivo"], "display-hero": ["Chivo"], "data-metric-md": ["JetBrains Mono"], "headline-md": ["Chivo"], "body-sm": ["Inter"] }, fontSize: { "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "700" }], "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "600" }], "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "600" }], "data-metric-xl": ["42px", { "lineHeight": "44px", "letterSpacing": "-0.04em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "800" }], "display-hero-mobile": ["36px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "900" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "500" }], "data-metric-lg": ["28px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-lg-mobile": ["26px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "800" }], "display-hero": ["48px", { "lineHeight": "52px", "letterSpacing": "-0.03em", "fontWeight": "900" }], "data-metric-md": ["18px", { "lineHeight": "22px", "fontWeight": "600" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md flex flex-col min-h-screen antialiased selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_4px_20px_rgba(6,14,32,0.6)]"><div class="h-16 px-space-base flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="TrailPulse Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X0ec0Cf1DF8mI1jv_fAPYvjg9LjsGY_EEXvGxqinuTz04_QPOG-p7r5emLVFckdNopw8M-8JSPra9kqC50JhHP2U4whx7aaLihhLt6NLMGZ_Vb9MszwYYQabWC47rlpML_ZXaivSL6Q_BLbHp1OVBV_KivkyYsaulVj6ui5dRIexUJZwS95gttVncnThf5jPEE8JnhFIoAozWBvfDCdatDirWyRc8ghDTdKIb03Y7dUPNHSRKURDSZs3g"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-primary leading-none uppercase">TrailPulse</span><span class="font-label-caps text-label-caps text-on-surface-variant uppercase mt-space-2xs">Telemetry OS</span></div></div><div class="flex items-center gap-space-base"><span class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-tight hidden sm:block">Cockpit</span><div class="flex items-center gap-space-sm"><div class="w-11 h-11 flex items-center justify-center rounded-full bg-surface-container-high"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-container/40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChuCRRbF7cy0rtxQ72CYMuZfj9GcnD0zYLt8g3XEI1ONdSJJ6ehE0LWe11Viui4Vf3F_Qv6_chH52Pv4C24B1qnqEz11lcL9ZSe8dXE-2xlVMxUPQCdV4jaXRqhNcWaMRlk8iDT4cTMadzn6yhnN2Gk2hEriLOeWDzfrmOGGfcFGevERKu3Qy-G-zySm5CzyjpqMdPF8q0YQ3hQhhrZJ7T_Qsj-IAqY1zE2R8sq4gj5ut2Mtc-ZKuG"/></div></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- Top Cockpit Map & 3D Spatial HUD -->
+<div class="relative w-full h-[380px] bg-surface-container-lowest overflow-hidden select-none">
+<!-- Topo SVG Render & Perspective Plane -->
+<div class="absolute inset-0 pointer-events-none">
+<svg class="w-full h-full opacity-40" fill="none" preserveaspectratio="none" viewbox="0 0 400 380" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<radialgradient cx="60%" cy="58%" id="mapGlow" r="45%">
+<stop offset="0%" stop-color="#ccf22a" stop-opacity="0.18"></stop>
+<stop offset="60%" stop-color="#00eefc" stop-opacity="0.08"></stop>
+<stop offset="100%" stop-color="#0b1326" stop-opacity="0"></stop>
+</radialgradient>
+<lineargradient id="heatFlow" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#ffb868" stop-opacity="0.05"></stop>
+<stop offset="50%" stop-color="#ffb868" stop-opacity="0.35"></stop>
+<stop offset="100%" stop-color="#905700" stop-opacity="0.1"></stop>
+</lineargradient>
+<lineargradient id="trailGlowGrad" x1="0%" x2="100%" y1="100%" y2="0%">
+<stop offset="0%" stop-color="#00dbe9"></stop>
+<stop offset="50%" stop-color="#00eefc"></stop>
+<stop offset="100%" stop-color="#ccf22a"></stop>
+</lineargradient>
+<filter height="140%" id="neonRouteBlur" width="140%" x="-20%" y="-20%">
+<fegaussianblur result="glow" stddeviation="3.5"></fegaussianblur>
+<fecomposite in="SourceGraphic" in2="glow" operator="over"></fecomposite>
+</filter>
+</defs>
+<rect fill="url(#mapGlow)" height="380" width="400"></rect>
+<!-- 3D Perspective Wire Grid Floor -->
+<g opacity="0.65" stroke="#222a3d" stroke-width="0.75">
+<line x1="200" x2="-50" y1="90" y2="380"></line>
+<line x1="200" x2="40" y1="90" y2="380"></line>
+<line x1="200" x2="130" y1="90" y2="380"></line>
+<line x1="200" x2="200" y1="90" y2="380"></line>
+<line x1="200" x2="270" y1="90" y2="380"></line>
+<line x1="200" x2="360" y1="90" y2="380"></line>
+<line x1="200" x2="450" y1="90" y2="380"></line>
+<ellipse cx="200" cy="220" fill="none" rx="160" ry="24"></ellipse>
+<ellipse cx="200" cy="280" fill="none" rx="220" ry="34"></ellipse>
+<ellipse cx="200" cy="340" fill="none" rx="280" ry="46"></ellipse>
+</g>
+<!-- Topographic Contour Lines (IGN style) -->
+<g fill="none" opacity="0.55" stroke="#454934" stroke-width="0.8">
+<path d="M-20 70 Q 70 50 140 85 T 320 60 T 430 90"></path>
+<path d="M-30 120 Q 90 95 180 130 T 360 110 T 430 140"></path>
+<path d="M-10 180 Q 80 150 160 190 T 310 175 T 430 210"></path>
+<path d="M-20 230 Q 110 200 210 240 T 380 220 T 440 260" stroke="#8f937a" stroke-dasharray="4 2" stroke-width="1.2"></path>
+<path d="M-10 290 Q 120 260 220 300 T 390 280 T 440 330"></path>
+<path d="M-40 350 Q 100 320 240 360 T 420 340"></path>
+</g>
+<!-- Topo Altitude Micro Callouts -->
+<text fill="#c5c9ad" font-family="JetBrains Mono" font-size="8" letter-spacing="1" x="325" y="64">1200m</text>
+<text fill="#c5c9ad" font-family="JetBrains Mono" font-size="8" letter-spacing="1" x="30" y="116">1400m</text>
+<text fill="#8f937a" font-family="JetBrains Mono" font-size="8.5" font-weight="700" letter-spacing="1" x="330" y="216">1680m [IGN]</text>
+<text fill="#c5c9ad" font-family="JetBrains Mono" font-size="8" letter-spacing="1" x="25" y="286">2190m</text>
+<!-- Amber Corridor Heatmap Overlay -->
+<path d="M-20 320 C 60 300 120 280 150 250 C 180 220 180 190 220 160 C 260 130 290 120 340 90" fill="none" opacity="0.8" stroke="url(#heatFlow)" stroke-linecap="round" stroke-width="18"></path>
+<path d="M70 380 C 110 330 150 290 200 270 C 250 250 290 230 350 200" fill="none" opacity="0.5" stroke="url(#heatFlow)" stroke-linecap="round" stroke-width="10"></path>
+<!-- High-contrast Neon Cyan Planned Trajectory -->
+<path d="M 40 360 C 90 320 140 290 175 250 C 205 215 220 185 245 150 C 275 110 310 95 365 70" fill="none" filter="url(#neonRouteBlur)" id="primaryRoute" stroke="#00eefc" stroke-linecap="round" stroke-width="5"></path>
+<!-- Animated Route Chevron Dashes -->
+<path d="M 40 360 C 90 320 140 290 175 250 C 205 215 220 185 245 150 C 275 110 310 95 365 70" fill="none" stroke="#0b1326" stroke-dasharray="3 9" stroke-width="1.8"></path>
+<!-- Ghost Racer Trajectory Vector (Ahead of Rider) -->
+<circle cx="232" cy="168" fill="#00eefc" fill-opacity="0.3" r="6" stroke="#00eefc" stroke-dasharray="2 2" stroke-width="1.5"></circle>
+<line opacity="0.8" stroke="#00eefc" stroke-dasharray="2 3" stroke-width="1.2" x1="232" x2="250" y1="168" y2="142"></line>
+</svg>
+</div>
+<!-- Active Ghost Tag Pill -->
+<div class="absolute top-[148px] left-[246px] z-20 flex items-center gap-space-xs bg-surface-container-high/90 backdrop-blur-md px-space-xs py-space-2xs rounded-full shadow-md">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed animate-ping"></span>
+<span class="font-label-caps text-[10px] leading-tight text-secondary-fixed font-bold tracking-wider">PB GHOST (-14s)</span>
+</div>
+<!-- Real-time Rider Position Puck & Directional Radar Cone -->
+<div class="absolute top-[226px] left-[162px] z-20 pointer-events-none -translate-x-1/2 -translate-y-1/2">
+<div class="relative flex items-center justify-center w-24 h-24">
+<!-- Directional Field / Radar Flare -->
+<div class="absolute inset-0 bg-gradient-to-t from-transparent via-primary-container/20 to-primary-container/40 clip-path-radar rounded-full -rotate-45 scale-125 opacity-70"></div>
+<!-- Pulse Radar Ripple -->
+<div class="absolute w-12 h-12 rounded-full bg-primary-container/20 animate-ping"></div>
+<!-- Outer Reticle Ring -->
+<div class="w-9 h-9 rounded-full bg-surface-container-lowest/80 flex items-center justify-center shadow-lg">
+<!-- Inner Precision Disc -->
+<div class="w-5 h-5 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed shadow-md">
+<span class="material-symbols-outlined text-[14px] font-bold -rotate-45">navigation</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Maneuver Navigation Bar (Pinned Top of Cockpit Canvas) -->
+<div class="absolute top-space-sm left-space-sm right-space-sm z-30 flex items-center justify-between gap-space-sm bg-surface-container-high/95 backdrop-blur-xl px-space-base py-space-sm rounded-xl shadow-xl">
+<div class="flex items-center gap-space-md min-w-0">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container shrink-0 shadow-md">
+<span class="material-symbols-outlined text-2xl font-bold">turn_sharp_left</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-sm text-headline-sm text-primary tracking-tight font-black">140m</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="font-label-caps text-label-caps text-secondary-fixed uppercase">Hairpin Left</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface truncate">Schauinsland Ridge • Compact Gravel</span>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-space-xs">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase">Route Apex</span>
+<span class="font-data-metric-md text-data-metric-md text-primary font-bold">2,191m</span>
+</div>
+</div>
+<!-- Dynamic 3D Tilt Horizon Badge -->
+<div class="absolute bottom-space-md left-space-sm z-30 flex items-center gap-space-xs bg-surface-container-lowest/90 backdrop-blur-md px-space-sm py-space-2xs rounded-full shadow-md">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-label-caps text-[10px] tracking-wider text-on-surface uppercase">3D DYNAMIC TILT • 32 KM/H (LOCKED 45°)</span>
+</div>
+<!-- Floating HUD Quick Toggles (Right Edge) -->
+<div class="absolute bottom-space-md right-space-sm z-30 flex items-center gap-space-xs">
+<div class="flex items-center bg-surface-container-lowest/90 backdrop-blur-md px-space-sm py-space-2xs rounded-full shadow-md">
+<span class="font-label-caps text-[9px] text-on-surface-variant font-semibold uppercase tracking-wider">18 SATS • ±1.2m</span>
+</div>
+<button aria-label="Recenter" class="w-8 h-8 rounded-full bg-surface-container-high/90 text-primary hover:bg-surface-bright active:scale-95 flex items-center justify-center shadow-md transition-transform">
+<span class="material-symbols-outlined text-[18px]">near_me</span>
+</button>
+<button aria-label="Toggle Layers" class="w-8 h-8 rounded-full bg-surface-container-high/90 text-secondary-fixed hover:bg-surface-bright active:scale-95 flex items-center justify-center shadow-md transition-transform">
+<span class="material-symbols-outlined text-[18px]">layers</span>
+</button>
+</div>
+</div>
+<!-- Telemetry Performance Bento Grid -->
+<div class="flex flex-col px-space-base pt-space-md pb-space-sm bg-surface">
+<!-- Section Micro Header -->
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">Live Bio-Mechanical Matrix</span>
+<span class="font-label-caps text-[10px] text-secondary-fixed uppercase">Telemetry Sync: 10Hz</span>
+</div>
+<!-- Bento Grid (6 Tactical Metrics) -->
+<div class="grid grid-cols-2 gap-space-sm">
+<!-- Tile 1: Heart Rate (Active High Threshold Alert State) -->
+<div class="relative flex flex-col justify-between p-space-md rounded-xl bg-error-container/40 overflow-hidden shadow-md group">
+<div class="absolute -right-6 -bottom-6 w-20 h-20 bg-error/15 rounded-full blur-xl pointer-events-none"></div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-2xs">
+<span class="material-symbols-outlined text-error text-[18px] animate-pulse">favorite</span>
+<span class="font-label-caps text-label-caps text-error font-bold uppercase tracking-wider">HEART RATE</span>
+</div>
+<span class="px-space-2xs py-0.5 rounded bg-error text-on-error font-label-caps text-[9px] font-bold">Z5 PEAK</span>
+</div>
+<div class="flex items-baseline gap-space-xs my-space-2xs">
+<span class="font-data-metric-xl text-data-metric-xl text-primary font-black tracking-tighter">176</span>
+<span class="font-label-caps text-label-caps text-error-container font-semibold">BPM</span>
+</div>
+<div class="flex items-center justify-between text-[11px] font-body-sm text-error">
+<span>&gt;90% Max Threshold</span>
+<span class="font-label-caps text-primary font-bold">96% Vo2</span>
+</div>
+</div>
+<!-- Tile 2: Current Speed -->
+<div class="flex flex-col justify-between p-space-md rounded-xl bg-surface-container-high shadow-md">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">SPEED</span>
+<span class="px-space-xs py-0.5 rounded-full bg-primary-container/20 text-primary-container font-label-caps text-[9px] font-bold tracking-tight">+4.1 vs PB</span>
+</div>
+<div class="flex items-baseline gap-space-xs my-space-2xs">
+<span class="font-data-metric-xl text-data-metric-xl text-primary font-black tracking-tighter">34.2</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">KM/H</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-[11px] text-on-surface-variant">
+<span>Avg 23.8 km/h</span>
+<span class="text-primary font-label-caps">Max 58.4</span>
+</div>
+</div>
+<!-- Tile 3: Grade / Incline -->
+<div class="flex flex-col justify-between p-space-md rounded-xl bg-surface-container-high shadow-md">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">GRADE / INCLINE</span>
+<span class="px-space-xs py-0.5 rounded-full bg-tertiary-fixed-dim/20 text-tertiary-fixed-dim font-label-caps text-[9px] font-bold">STEEP WALL</span>
+</div>
+<div class="flex items-baseline gap-space-xs my-space-2xs">
+<span class="font-data-metric-lg text-data-metric-lg text-tertiary-fixed-dim font-black tracking-tight">+10.8</span>
+<span class="font-label-caps text-label-caps text-tertiary-fixed-dim font-bold">%</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-[11px] text-on-surface-variant">
+<span>VAM 1,150 m/h</span>
+<span class="text-on-surface font-label-caps">Apex +16%</span>
+</div>
+</div>
+<!-- Tile 4: Cadence -->
+<div class="flex flex-col justify-between p-space-md rounded-xl bg-surface-container-high shadow-md">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">CADENCE</span>
+<span class="w-2 h-2 rounded-full bg-secondary-fixed"></span>
+</div>
+<div class="flex items-baseline gap-space-xs my-space-2xs">
+<span class="font-data-metric-lg text-data-metric-lg text-secondary-fixed font-black tracking-tight">88</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">RPM</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-[11px] text-on-surface-variant">
+<span>Smoothness Index</span>
+<span class="text-secondary-fixed font-label-caps font-bold">89%</span>
+</div>
+</div>
+<!-- Tile 5: ETA / Distance Left -->
+<div class="flex flex-col justify-between p-space-md rounded-xl bg-surface-container-high shadow-md">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">ETA / REMAIN</span>
+<span class="font-label-caps text-[9px] text-secondary-fixed font-bold">GAP -0:14</span>
+</div>
+<div class="flex items-baseline gap-space-xs my-space-2xs">
+<span class="font-data-metric-md text-data-metric-md text-primary font-black">11:42</span>
+<span class="font-label-caps text-[11px] text-on-surface-variant uppercase">AM</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-[11px] text-on-surface-variant">
+<span>18.4 km to summit</span>
+<span class="text-primary font-label-caps">43% done</span>
+</div>
+</div>
+<!-- Tile 6: Power / Exertion -->
+<div class="flex flex-col justify-between p-space-md rounded-xl bg-surface-container-high shadow-md">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">OUTPUT POWER</span>
+<span class="px-space-xs py-0.5 rounded-full bg-primary-container text-on-primary-container font-label-caps text-[9px] font-black">FTP 112%</span>
+</div>
+<div class="flex items-baseline gap-space-xs my-space-2xs">
+<span class="font-data-metric-md text-data-metric-md text-primary font-black">310</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">WATTS</span>
+</div>
+<div class="flex items-center justify-between font-body-sm text-[11px] text-on-surface-variant">
+<span>NP 284W</span>
+<span class="text-primary font-label-caps font-bold">4.2 W/kg</span>
+</div>
+</div>
+</div>
+<!-- Affordance Helper Note -->
+<div class="flex items-center justify-center gap-space-xs mt-space-sm text-center">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">touch_app</span>
+<span class="font-label-caps text-[10px] text-on-surface-variant tracking-wider">LONG-PRESS ANY TILE TO CUSTOMIZE SENSORS</span>
+</div>
+</div>
+<!-- Elevation Contour Slicer Profile (Bottom Visual Section) -->
+<div class="flex flex-col px-space-base pt-space-xs pb-space-lg bg-surface">
+<div class="p-space-md rounded-xl bg-surface-container-high shadow-xl flex flex-col">
+<!-- Header Metrics Ribbon -->
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary-fixed text-[18px]">show_chart</span>
+<span class="font-label-caps text-label-caps text-primary font-bold tracking-wider uppercase">Route Profile &amp; Slope Severity</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="font-label-caps text-[10px] text-on-surface-variant">ASCENT LEFT:</span>
+<span class="font-label-caps text-label-caps text-primary-container font-bold">+380m</span>
+</div>
+</div>
+<!-- Segmented Vector Elevation Slicer -->
+<div class="relative w-full h-24 mt-space-xs overflow-hidden">
+<svg class="w-full h-full" fill="none" preserveaspectratio="none" viewbox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<lineargradient id="elevFillFade" x1="0" x2="0" y1="0" y2="100%">
+<stop offset="0%" stop-color="#2d3449" stop-opacity="0.8"></stop>
+<stop offset="100%" stop-color="#060e20" stop-opacity="0.3"></stop>
+</lineargradient>
+<!-- Vertical Color Stop Gradients for Steepness Sectors -->
+<lineargradient id="steepnessStroke" x1="0%" x2="100%" y1="0%" y2="0%">
+<!-- Green: 0 - 3% -->
+<stop offset="0%" stop-color="#b1d400"></stop>
+<stop offset="25%" stop-color="#b1d400"></stop>
+<!-- Yellow/Moderate: 4 - 7% -->
+<stop offset="28%" stop-color="#ffb868"></stop>
+<stop offset="48%" stop-color="#ffb868"></stop>
+<!-- Red: 8 - 12% -->
+<stop offset="52%" stop-color="#ffb4ab"></stop>
+<stop offset="70%" stop-color="#ffb4ab"></stop>
+<!-- Black / Dark Crimson: Extreme Pitches 15%+ -->
+<stop offset="72%" stop-color="#93000a"></stop>
+<stop offset="86%" stop-color="#690005"></stop>
+<!-- Final descent slope -->
+<stop offset="92%" stop-color="#b1d400"></stop>
+<stop offset="100%" stop-color="#b1d400"></stop>
+</lineargradient>
+</defs>
+<!-- Elevation Area Fill -->
+<path d="M 0 85 
+                   L 20 82 
+                   L 60 78 
+                   L 100 70 
+                   L 150 64 
+                   L 200 52 
+                   L 240 42 
+                   L 290 28 
+                   L 330 12 
+                   L 350 10 
+                   L 375 35 
+                   L 400 55 
+                   L 400 100 
+                   L 0 100 Z" fill="url(#elevFillFade)"></path>
+<!-- Segmented Dynamic Stroke -->
+<path d="M 0 85 
+                   L 20 82 
+                   L 60 78 
+                   L 100 70 
+                   L 150 64 
+                   L 200 52 
+                   L 240 42 
+                   L 290 28 
+                   L 330 12 
+                   L 350 10 
+                   L 375 35 
+                   L 400 55" fill="none" stroke="url(#steepnessStroke)" stroke-linecap="round" stroke-width="3"></path>
+<!-- Horizontal Reference Elevation Gridlines -->
+<line opacity="0.4" stroke="#454934" stroke-dasharray="3 3" stroke-width="0.5" x1="0" x2="400" y1="20" y2="20"></line>
+<line opacity="0.4" stroke="#454934" stroke-dasharray="3 3" stroke-width="0.5" x1="0" x2="400" y1="55" y2="55"></line>
+<!-- Summit Apex Marker -->
+<circle cx="350" cy="10" fill="#ffb4ab" r="3.5" stroke="#690005" stroke-width="1.5"></circle>
+<!-- Current Position Needle (KM 24.1) -->
+<line stroke="#00eefc" stroke-dasharray="2 2" stroke-width="2" x1="228" x2="228" y1="0" y2="100"></line>
+<circle cx="228" cy="45" fill="#00eefc" r="4.5" stroke="#0b1326" stroke-width="1.5"></circle>
+</svg>
+<!-- Dynamic Floating Scrubber Pill for Current Position -->
+<div class="absolute top-1 left-[214px] -translate-x-1/2 flex items-center gap-space-2xs bg-secondary-container text-on-secondary-container px-space-xs py-0.5 rounded-full shadow-md pointer-events-none">
+<span class="w-1.5 h-1.5 rounded-full bg-on-secondary-container animate-ping"></span>
+<span class="font-label-caps text-[9px] font-black tracking-tight">YOU • KM 24.1 (1,811m)</span>
+</div>
+<!-- Apex Callout Label -->
+<div class="absolute top-3 right-2 flex items-center gap-1 text-right pointer-events-none">
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-[9px] text-error font-extrabold uppercase">Apex 2,191m</span>
+<span class="font-label-caps text-[8px] text-on-surface-variant">+16.2% MAX</span>
+</div>
+</div>
+</div>
+<!-- Distance Reference Axis & Legend -->
+<div class="flex items-center justify-between pt-space-xs mt-space-2xs">
+<span class="font-label-caps text-[9px] text-on-surface-variant font-semibold">0 km</span>
+<span class="font-label-caps text-[9px] text-on-surface-variant font-semibold">15 km</span>
+<span class="font-label-caps text-[9px] text-secondary-fixed font-bold">30 km</span>
+<span class="font-label-caps text-[9px] text-on-surface-variant font-semibold">42.5 km</span>
+</div>
+<!-- Pitch Gradient Color Code Legend -->
+<div class="flex items-center justify-between pt-space-xs">
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded bg-primary-container"></span>
+<span class="font-label-caps text-[8px] text-on-surface-variant">0-3%</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded bg-tertiary-fixed-dim"></span>
+<span class="font-label-caps text-[8px] text-on-surface-variant">4-7%</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded bg-error"></span>
+<span class="font-label-caps text-[8px] text-on-surface-variant">8-12%</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded bg-error-container"></span>
+<span class="font-label-caps text-[8px] text-on-surface-variant">15%+ EXTREME</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Tactile Controls Drawer / Action Strip -->
+<div class="px-space-base pb-space-lg flex items-center gap-space-sm">
+<button class="flex-1 h-12 rounded-xl bg-primary-container text-on-primary-container font-headline-sm text-headline-sm uppercase tracking-tight font-black flex items-center justify-center gap-space-xs shadow-lg active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined text-xl font-bold">pause</span>
+<span>HOLD TO PAUSE</span>
+</button>
+<button aria-label="Mark Waypoint Lap" class="w-12 h-12 rounded-xl bg-surface-container-high text-tertiary-fixed-dim hover:text-primary flex items-center justify-center shadow-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl font-bold">flag</span>
+</button>
+<button aria-label="Emergency Beacon" class="w-12 h-12 rounded-xl bg-surface-container-high text-secondary-fixed hover:text-primary flex items-center justify-center shadow-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl font-bold">sos</span>
+</button>
+</div>
+</div></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(6,14,32,0.8)]" data-active-classes="text-primary-container bg-surface-container-high/80"><div class="flex justify-around items-center h-20 px-space-sm"><a class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg text-on-surface-variant transition-all hover:text-on-surface" data-path="explore" href="#"><span class="material-symbols-outlined text-2xl">explore</span><span class="font-label-caps text-label-caps uppercase">Explore</span></a><a class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg text-on-surface-variant transition-all hover:text-on-surface" data-path="planner" href="#"><span class="material-symbols-outlined text-2xl">altitude</span><span class="font-label-caps text-label-caps uppercase">Planner</span></a><a aria-current="page" class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg transition-all text-primary-container bg-surface-container-high/80" data-path="cockpit" href="#"><span class="material-symbols-outlined text-2xl">speed</span><span class="font-label-caps text-label-caps uppercase">Cockpit</span></a><a class="flex flex-col items-center justify-center gap-space-2xs min-w-[64px] min-h-[48px] px-space-sm py-space-xs rounded-lg text-on-surface-variant transition-all hover:text-on-surface" data-path="analytics" href="#"><span class="material-symbols-outlined text-2xl">query_stats</span><span class="font-label-caps text-label-caps uppercase">Stats</span></a></div></nav></body></html>
