@@ -64,7 +64,7 @@ class TacticalBentoMatrix extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 1.45,
+            childAspectRatio: 1.35,
             children: [
               // 1. Heart Rate (Alert state when peak)
               MetricTile(
@@ -86,7 +86,7 @@ class TacticalBentoMatrix extends StatelessWidget {
                 ),
                 value: '${telemetry.heartRateBpm}',
                 unit: 'BPM',
-                footerLeft: '>90% Max Threshold',
+                footerLeft: '>90% Threshold',
                 footerRight: '${telemetry.vo2MaxPercent}% Vo2',
                 isAlert: telemetry.isHeartRatePeakAlert,
               ),
@@ -114,9 +114,9 @@ class TacticalBentoMatrix extends StatelessWidget {
                 footerRight: 'Max ${telemetry.maxSpeedKmH}',
               ),
 
-              // 3. Grade / Incline
+              // 3. Grade
               MetricTile(
-                label: 'Grade / Incline',
+                label: 'Grade',
                 badge: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -156,7 +156,7 @@ class TacticalBentoMatrix extends StatelessWidget {
                 valueStyle: AppTypography.dataMetricLg.copyWith(
                   color: AppColors.secondaryFixed,
                 ),
-                footerLeft: 'Smoothness Index',
+                footerLeft: 'Smoothness',
                 footerRight: '${telemetry.cadenceSmoothnessPercent}%',
               ),
 
@@ -176,7 +176,7 @@ class TacticalBentoMatrix extends StatelessWidget {
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                 ),
-                footerLeft: '${telemetry.distanceRemainingKm} km to summit',
+                footerLeft: '${telemetry.distanceRemainingKm} km left',
                 footerRight: '${(telemetry.progressPercentage * 100).toInt()}% done',
               ),
 

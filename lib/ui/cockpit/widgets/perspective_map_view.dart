@@ -140,7 +140,7 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '3D DYNAMIC TILT • ${widget.telemetry.currentSpeedKmH.toInt()} KM/H (LOCKED 45°)',
+                    '3D TILT 45° • ${widget.telemetry.currentSpeedKmH.toInt()} KM/H',
                     style: AppTypography.microCaps.copyWith(
                       color: AppColors.onSurface,
                       fontSize: 9,

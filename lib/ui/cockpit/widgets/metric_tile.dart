@@ -38,7 +38,7 @@ class MetricTile extends StatelessWidget {
             : AppColors.surfaceContainerHigh);
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
@@ -61,27 +61,33 @@ class MetricTile extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    icon!,
-                    const SizedBox(width: 4),
-                  ],
-                  Text(
-                    label.toUpperCase(),
-                    style: AppTypography.labelCaps.copyWith(
-                      fontSize: 10,
-                      color: isAlert ? AppColors.error : AppColors.onSurfaceVariant,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      icon!,
+                      const SizedBox(width: 4),
+                    ],
+                    Flexible(
+                      child: Text(
+                        label.toUpperCase(),
+                        style: AppTypography.labelCaps.copyWith(
+                          fontSize: 10,
+                          color: isAlert ? AppColors.error : AppColors.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              if (badge != null) badge!,
+              if (badge != null) ...[
+                const SizedBox(width: 4),
+                badge!,
+              ],
             ],
           ),
-
-          const SizedBox(height: 6),
 
           // Main Metric & Unit
           Row(
@@ -93,6 +99,7 @@ class MetricTile extends StatelessWidget {
                 style: valueStyle ??
                     AppTypography.dataMetricXl.copyWith(
                       color: customValueColor ?? AppColors.primary,
+                      fontSize: 34,
                     ),
               ),
               const SizedBox(width: 4),
@@ -106,19 +113,21 @@ class MetricTile extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 6),
-
           // Footer info
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                footerLeft,
-                style: AppTypography.bodySm.copyWith(
-                  fontSize: 10,
-                  color: isAlert ? AppColors.error : AppColors.onSurfaceVariant,
+              Flexible(
+                child: Text(
+                  footerLeft,
+                  style: AppTypography.bodySm.copyWith(
+                    fontSize: 10,
+                    color: isAlert ? AppColors.error : AppColors.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 4),
               Text(
                 footerRight,
                 style: AppTypography.labelCaps.copyWith(

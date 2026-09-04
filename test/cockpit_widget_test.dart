@@ -17,7 +17,7 @@ void main() {
     // Verify Tactical Bento Grid Tiles
     expect(find.text('HEART RATE'), findsOneWidget);
     expect(find.text('SPEED'), findsOneWidget);
-    expect(find.text('GRADE / INCLINE'), findsOneWidget);
+    expect(find.text('GRADE'), findsOneWidget);
     expect(find.text('CADENCE'), findsOneWidget);
     expect(find.text('ETA / REMAIN'), findsOneWidget);
     expect(find.text('OUTPUT POWER'), findsOneWidget);
