@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
@@ -43,19 +44,25 @@ class ElevationSlicerWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.show_chart, color: AppColors.secondaryFixed, size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    'ROUTE PROFILE & SLOPE SEVERITY',
-                    style: AppTypography.labelCaps.copyWith(
-                      color: AppColors.primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.show_chart, color: AppColors.secondaryFixed, size: 18),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'ROUTE PROFILE & SLOPE SEVERITY',
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.labelCaps.copyWith(
+                          color: AppColors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Row(
                 children: [
@@ -85,108 +92,127 @@ class ElevationSlicerWidget extends StatelessWidget {
           SizedBox(
             height: 100,
             width: double.infinity,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _ElevationProfilePainter(
-                      profile: profile,
-                      progressRatio: telemetry.progressPercentage,
-                    ),
-                  ),
-                ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final canvasWidth = constraints.maxWidth;
+                final progress = telemetry.progressPercentage;
+                final needleX = canvasWidth * progress;
+                // Clamp scrubber pill so it stays strictly within the card bounds
+                final double pillLeft = (needleX - 45.0).clamp(2.0, math.max(2.0, canvasWidth - 145.0)).toDouble();
 
-                // Scrubber Pill
-                Positioned(
-                  top: 2,
-                  left: (MediaQuery.of(context).size.width - 60) * telemetry.progressPercentage - 50,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.secondaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x66000000),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.onSecondaryContainer,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'YOU • KM ${telemetry.distanceTraveledKm} (${telemetry.currentElevationM.toInt()}m)',
-                          style: AppTypography.microCaps.copyWith(
-                            color: AppColors.onSecondaryContainer,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 8,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Apex Callout Label
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'APEX ${telemetry.apexElevationM.toInt()}m',
-                        style: AppTypography.microCaps.copyWith(
-                          color: AppColors.error,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 9,
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _ElevationProfilePainter(
+                          profile: profile,
+                          progressRatio: progress,
                         ),
                       ),
-                      Text(
-                        '+${telemetry.maxGradePercent}% MAX',
-                        style: AppTypography.microCaps.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                          fontSize: 8,
+                    ),
+
+                    // Scrubber Pill
+                    Positioned(
+                      top: 2,
+                      left: pillLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x66000000),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.onSecondaryContainer,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'YOU • KM ${telemetry.distanceTraveledKm.toStringAsFixed(1)} (${telemetry.currentElevationM.toInt()}m)',
+                              style: AppTypography.microCaps.copyWith(
+                                color: AppColors.onSecondaryContainer,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 8,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+
+                    // Apex Callout Label
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'APEX ${telemetry.apexElevationM.toInt()}m',
+                            style: AppTypography.microCaps.copyWith(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 9,
+                            ),
+                          ),
+                          Text(
+                            '+${telemetry.maxGradePercent.toStringAsFixed(1)}% MAX',
+                            style: AppTypography.microCaps.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                              fontSize: 8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 
           const SizedBox(height: 6),
 
           // Distance Reference Axis
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('0 km', style: AppTypography.microCaps.copyWith(fontSize: 9)),
-              Text('15 km', style: AppTypography.microCaps.copyWith(fontSize: 9)),
-              Text(
-                '30 km',
-                style: AppTypography.microCaps.copyWith(
-                  fontSize: 9,
-                  color: AppColors.secondaryFixed,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                '${telemetry.totalDistanceKm} km',
-                style: AppTypography.microCaps.copyWith(fontSize: 9),
-              ),
-            ],
+          Builder(
+            builder: (context) {
+              final total = telemetry.totalDistanceKm;
+              final d1 = (total * 0.33).toStringAsFixed(1);
+              final d2 = (total * 0.66).toStringAsFixed(1);
+              final dEnd = total.toStringAsFixed(1);
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('0.0 km', style: AppTypography.microCaps.copyWith(fontSize: 9)),
+                  Text('$d1 km', style: AppTypography.microCaps.copyWith(fontSize: 9)),
+                  Text(
+                    '$d2 km',
+                    style: AppTypography.microCaps.copyWith(
+                      fontSize: 9,
+                      color: AppColors.secondaryFixed,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    '$dEnd km',
+                    style: AppTypography.microCaps.copyWith(fontSize: 9),
+                  ),
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 8),
@@ -252,16 +278,24 @@ class _ElevationProfilePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (profile.isEmpty) return;
 
-    const double minEle = 1100.0;
-    const double maxEle = 2300.0;
-    const double eleRange = maxEle - minEle;
+    double minEle = profile.first.elevationM;
+    double maxEle = profile.first.elevationM;
+    for (final pt in profile) {
+      if (pt.elevationM < minEle) minEle = pt.elevationM;
+      if (pt.elevationM > maxEle) maxEle = pt.elevationM;
+    }
 
-    final maxDistance = profile.last.distanceKm;
+    final padding = math.max(30.0, (maxEle - minEle) * 0.12);
+    final chartMin = (minEle - padding).clamp(0.0, double.infinity);
+    final chartMax = maxEle + padding;
+    final eleRange = (chartMax - chartMin) <= 0 ? 1.0 : (chartMax - chartMin);
+
+    final maxDistance = profile.last.distanceKm <= 0 ? 1.0 : profile.last.distanceKm;
 
     final points = <Offset>[];
     for (final pt in profile) {
       final x = (pt.distanceKm / maxDistance) * size.width;
-      final y = size.height - ((pt.elevationM - minEle) / eleRange) * (size.height * 0.85);
+      final y = size.height - ((pt.elevationM - chartMin) / eleRange) * (size.height * 0.85);
       points.add(Offset(x, y));
     }
 
@@ -342,11 +376,27 @@ class _ElevationProfilePainter extends CustomPainter {
       startY += 8;
     }
 
-    // Needle Disc
+    // Find point on curve at currentX
+    double currentY = size.height * 0.5;
+    for (int i = 0; i < points.length - 1; i++) {
+      if (currentX >= points[i].dx && currentX <= points[i + 1].dx) {
+        final segmentW = points[i + 1].dx - points[i].dx;
+        final t = segmentW > 0 ? (currentX - points[i].dx) / segmentW : 0.0;
+        currentY = points[i].dy + t * (points[i + 1].dy - points[i].dy);
+        break;
+      }
+    }
+
+    // Needle Disc positioned directly on the elevation curve
     canvas.drawCircle(
-      Offset(currentX, size.height * 0.5),
-      4.5,
+      Offset(currentX, currentY),
+      5.0,
       Paint()..color = AppColors.secondaryContainer,
+    );
+    canvas.drawCircle(
+      Offset(currentX, currentY),
+      2.5,
+      Paint()..color = Colors.white,
     );
   }
 

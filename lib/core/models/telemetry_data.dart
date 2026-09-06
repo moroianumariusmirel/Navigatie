@@ -1,3 +1,5 @@
+import 'package:latlong2/latlong.dart' hide Path;
+
 /// Complete live bio-mechanical and spatial telemetry snapshot
 class TelemetryData {
   // Speed
@@ -43,6 +45,13 @@ class TelemetryData {
   final double currentHeadingDegrees;
   final double crossTrackDistanceM;
   final bool isOffRoute;
+  final double? currentLatitude;
+  final double? currentLongitude;
+
+  LatLng? get currentPosition =>
+      (currentLatitude != null && currentLongitude != null)
+          ? LatLng(currentLatitude!, currentLongitude!)
+          : null;
 
   const TelemetryData({
     this.currentSpeedKmH = 34.2,
@@ -75,6 +84,8 @@ class TelemetryData {
     this.currentHeadingDegrees = 315.0,
     this.crossTrackDistanceM = 1.5,
     this.isOffRoute = false,
+    this.currentLatitude,
+    this.currentLongitude,
   });
 
   double get progressPercentage {
@@ -113,6 +124,8 @@ class TelemetryData {
     double? currentHeadingDegrees,
     double? crossTrackDistanceM,
     bool? isOffRoute,
+    double? currentLatitude,
+    double? currentLongitude,
   }) {
     return TelemetryData(
       currentSpeedKmH: currentSpeedKmH ?? this.currentSpeedKmH,
@@ -145,6 +158,8 @@ class TelemetryData {
       currentHeadingDegrees: currentHeadingDegrees ?? this.currentHeadingDegrees,
       crossTrackDistanceM: crossTrackDistanceM ?? this.crossTrackDistanceM,
       isOffRoute: isOffRoute ?? this.isOffRoute,
+      currentLatitude: currentLatitude ?? this.currentLatitude,
+      currentLongitude: currentLongitude ?? this.currentLongitude,
     );
   }
 }

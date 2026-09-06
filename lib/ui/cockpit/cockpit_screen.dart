@@ -40,6 +40,8 @@ class CockpitScreen extends StatelessWidget {
                     PerspectiveMapView(
                       telemetry: telemetry,
                       maneuver: currentManeuver,
+                      route: activeRoute,
+                      activityType: telemetryService.activityType,
                     ),
 
                     // 2. Tactical Bento Matrix (6 Live Biomechanical Metrics)

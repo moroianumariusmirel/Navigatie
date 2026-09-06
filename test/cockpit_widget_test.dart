@@ -1,7 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trailpulse/app.dart';
+import 'package:trailpulse/core/maps/osm_tile_providers.dart';
 
 void main() {
+  setUp(() {
+    OsmTileProviders.overrideTileProvider = MockWhiteTileProvider();
+  });
+
   testWidgets('TrailPulse Cockpit renders essential HUD and tactical bento tiles', (WidgetTester tester) async {
     await tester.pumpWidget(const TrailPulseApp());
     await tester.pump(const Duration(milliseconds: 200));

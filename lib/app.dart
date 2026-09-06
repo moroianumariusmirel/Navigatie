@@ -35,8 +35,6 @@ class MainNavigationHost extends StatefulWidget {
 }
 
 class _MainNavigationHostState extends State<MainNavigationHost> {
-  int _currentIndex = 2; // Default to Cockpit (Index 2)
-
   final List<Widget> _screens = const [
     ExploreScreen(),
     PlannerScreen(),
@@ -46,18 +44,27 @@ class _MainNavigationHostState extends State<MainNavigationHost> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: _currentIndex,
-        onTabSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+    final telemetry = context.watch<TelemetryService>();
+    final currentIndex = telemetry.selectedTabIndex;
+
+    return Container(
+      color: const Color(0xFF060B14), // Deep OLED backdrop for desktop browser margins
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Scaffold(
+            body: IndexedStack(
+              index: currentIndex,
+              children: _screens,
+            ),
+            bottomNavigationBar: BottomNavBar(
+              currentIndex: currentIndex,
+              onTabSelected: (index) {
+                telemetry.setSelectedTabIndex(index);
+              },
+            ),
+          ),
+        ),
       ),
     );
   }

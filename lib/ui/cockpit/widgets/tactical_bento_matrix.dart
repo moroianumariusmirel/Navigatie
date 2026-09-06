@@ -12,8 +12,25 @@ class TacticalBentoMatrix extends StatelessWidget {
     required this.telemetry,
   });
 
+  (String, Color) _getGradeBadge(double grade) {
+    if (grade <= -8.0) return ('STEEP DESCENT', AppColors.secondaryContainer);
+    if (grade < -1.5) return ('DESCENT', AppColors.secondaryContainer);
+    if (grade.abs() <= 1.5) return ('FLAT', AppColors.slopeFlat);
+    if (grade <= 6.0) return ('MODERATE', AppColors.slopeModerate);
+    if (grade <= 11.0) return ('STEEP WALL', AppColors.slopeSteep);
+    return ('EXTREME PITCH', AppColors.slopeExtreme);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final grade = telemetry.currentGradePercent;
+    final (gradeBadgeText, gradeColor) = _getGradeBadge(grade);
+    final gradeSign = grade > 0 ? '+' : '';
+
+    final etaParts = telemetry.etaFormatted.split(' ');
+    final etaTime = etaParts.isNotEmpty ? etaParts[0] : telemetry.etaFormatted;
+    final etaUnit = etaParts.length > 1 ? etaParts[1] : '';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -23,12 +40,15 @@ class TacticalBentoMatrix extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'LIVE BIO-MECHANICAL MATRIX',
-                style: AppTypography.labelCaps.copyWith(
-                  fontSize: 10,
-                  letterSpacing: 1.2,
-                  color: AppColors.onSurfaceVariant,
+              Flexible(
+                child: Text(
+                  'LIVE BIO-MECHANICAL MATRIX',
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.labelCaps.copyWith(
+                    fontSize: 10,
+                    letterSpacing: 1.2,
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
               ),
               Row(
@@ -120,21 +140,21 @@ class TacticalBentoMatrix extends StatelessWidget {
                 badge: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.tertiaryFixedDim.withOpacity(0.2),
+                    color: gradeColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    'STEEP WALL',
+                    gradeBadgeText,
                     style: AppTypography.microCaps.copyWith(
-                      color: AppColors.tertiaryFixedDim,
+                      color: gradeColor,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                value: '+${telemetry.currentGradePercent.toStringAsFixed(1)}',
+                value: '$gradeSign${grade.toStringAsFixed(1)}',
                 unit: '%',
                 valueStyle: AppTypography.dataMetricLg.copyWith(
-                  color: AppColors.tertiaryFixedDim,
+                  color: gradeColor,
                 ),
                 footerLeft: 'VAM ${telemetry.vamAscentRateMh} m/h',
                 footerRight: 'Apex +${telemetry.maxGradePercent.toInt()}%',
@@ -170,8 +190,8 @@ class TacticalBentoMatrix extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                value: telemetry.etaFormatted.replaceAll(' AM', '').replaceAll(' PM', ''),
-                unit: 'AM',
+                value: etaTime,
+                unit: etaUnit,
                 valueStyle: AppTypography.dataMetricMd.copyWith(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,

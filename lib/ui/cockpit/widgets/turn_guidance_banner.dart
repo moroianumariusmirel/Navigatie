@@ -78,11 +78,15 @@ class TurnGuidanceBanner extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      maneuver.instructionTitle.toUpperCase(),
-                      style: AppTypography.labelCaps.copyWith(
-                        color: AppColors.secondaryFixed,
-                        fontSize: 10,
+                    Flexible(
+                      child: Text(
+                        maneuver.instructionTitle.toUpperCase(),
+                        style: AppTypography.labelCaps.copyWith(
+                          color: AppColors.secondaryFixed,
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
