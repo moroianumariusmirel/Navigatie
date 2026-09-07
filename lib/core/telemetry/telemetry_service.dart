@@ -6,6 +6,8 @@ import '../models/telemetry_data.dart';
 import '../models/route_model.dart';
 import '../models/elevation_point.dart';
 import '../models/activity_type.dart';
+import '../permissions/permission_service.dart';
+import '../storage/gpx_storage_service.dart';
 
 class TelemetryService extends ChangeNotifier {
   TelemetryData _currentData = const TelemetryData();
@@ -39,21 +41,49 @@ class TelemetryService extends ChangeNotifier {
     RouteModel.sampleFeldbergHike(),
   ];
 
+  AppPermissionStatus _permissionStatus = const AppPermissionStatus(
+    isLocationGranted: false,
+    isStorageGranted: false,
+  );
+
   TelemetryData get currentData => _currentData;
   RouteModel? get activeRoute => _activeRoute;
   ActivityType get activityType => _activityType;
   bool get isRecording => _isRecording;
   List<RouteModel> get savedOfflineRoutes => List.unmodifiable(_savedOfflineRoutes);
+  AppPermissionStatus get permissionStatus => _permissionStatus;
+
+  void updatePermissionStatus(AppPermissionStatus status) {
+    _permissionStatus = status;
+    notifyListeners();
+  }
+
+  /// Loads saved GPX files from device storage into the offline routes library
+  Future<void> loadSavedRoutesFromDisk() async {
+    final loaded = await GpxStorageService.loadAllSavedGpxRoutes();
+    bool addedAny = false;
+    for (final route in loaded) {
+      if (!_savedOfflineRoutes.any((r) => r.id == route.id)) {
+        _savedOfflineRoutes.add(route);
+        addedAny = true;
+      }
+    }
+    if (addedAny) {
+      notifyListeners();
+    }
+  }
 
   void saveRouteOffline(RouteModel route) {
     if (!_savedOfflineRoutes.any((r) => r.id == route.id)) {
       _savedOfflineRoutes.add(route);
+      GpxStorageService.saveGpxToFile(route);
       notifyListeners();
     }
   }
 
   void removeOfflineRoute(String routeId) {
     _savedOfflineRoutes.removeWhere((r) => r.id == routeId);
+    GpxStorageService.deleteGpxFile(routeId);
     notifyListeners();
   }
 

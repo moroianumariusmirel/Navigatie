@@ -30,5 +30,8 @@ void main() {
     // Verify Elevation Slicer and Actions
     expect(find.text('ROUTE PROFILE & SLOPE SEVERITY'), findsOneWidget);
     expect(find.text('HOLD TO PAUSE'), findsOneWidget);
+
+    // Verify Tactical GPS Sensor status badge
+    expect(find.textContaining('GPS'), findsWidgets);
   });
 }

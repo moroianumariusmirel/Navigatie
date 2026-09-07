@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'core/telemetry/telemetry_service.dart';
+import 'core/permissions/permission_service.dart';
 import 'ui/cockpit/cockpit_screen.dart';
 import 'ui/planner/planner_screen.dart';
 import 'ui/explore/explore_screen.dart';
@@ -41,6 +42,22 @@ class _MainNavigationHostState extends State<MainNavigationHost> {
     CockpitScreen(),
     AnalyticsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializePermissionsAndStorage();
+    });
+  }
+
+  Future<void> _initializePermissionsAndStorage() async {
+    if (!mounted) return;
+    final telemetry = context.read<TelemetryService>();
+    final status = await PermissionService.requestInitialAppPermissions();
+    telemetry.updatePermissionStatus(status);
+    await telemetry.loadSavedRoutesFromDisk();
+  }
 
   @override
   Widget build(BuildContext context) {

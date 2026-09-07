@@ -265,6 +265,71 @@ class GpxParser {
 
     return parseGpx(buffer.toString(), defaultActivity: defaultActivity, fallbackName: routeName);
   }
+
+  /// Serializes a RouteModel into standard GPX 1.1 XML format
+  static String exportToGpx(RouteModel route) {
+    final buffer = StringBuffer();
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    buffer.writeln('<gpx version="1.1" creator="TrailPulse Telemetry OS" xmlns="http://www.topografix.com/GPX/1/1">');
+    
+    // Metadata
+    buffer.writeln('  <metadata>');
+    buffer.writeln('    <name>${_escapeXml(route.name)}</name>');
+    buffer.writeln('    <desc>Distance: ${route.totalDistanceKm.toStringAsFixed(1)}km, Ascent: ${route.totalAscentM.toInt()}m</desc>');
+    buffer.writeln('    <time>${DateTime.now().toUtc().toIso8601String()}</time>');
+    buffer.writeln('  </metadata>');
+
+    // Waypoints
+    if (route.coordinates.isNotEmpty) {
+      final start = route.coordinates.first;
+      buffer.writeln('  <wpt lat="${start.latitude}" lon="${start.longitude}">');
+      buffer.writeln('    <name>Start: ${_escapeXml(route.name)}</name>');
+      buffer.writeln('    <type>start</type>');
+      buffer.writeln('  </wpt>');
+
+      if (route.coordinates.length > 1) {
+        final end = route.coordinates.last;
+        buffer.writeln('  <wpt lat="${end.latitude}" lon="${end.longitude}">');
+        buffer.writeln('    <name>Arrival: ${_escapeXml(route.name)}</name>');
+        buffer.writeln('    <type>end</type>');
+        buffer.writeln('  </wpt>');
+      }
+    }
+
+    // Track
+    buffer.writeln('  <trk>');
+    buffer.writeln('    <name>${_escapeXml(route.name)}</name>');
+    buffer.writeln('    <type>${route.activityType.name}</type>');
+    buffer.writeln('    <trkseg>');
+
+    final coords = route.coordinates;
+    final elevations = route.elevationProfile;
+
+    for (int i = 0; i < coords.length; i++) {
+      final coord = coords[i];
+      double ele = 500.0;
+      if (elevations.isNotEmpty) {
+        final eleIndex = ((i / math.max(1, coords.length - 1)) * (elevations.length - 1)).round();
+        ele = elevations[eleIndex.clamp(0, elevations.length - 1)].elevationM;
+      }
+      buffer.writeln('      <trkpt lat="${coord.latitude}" lon="${coord.longitude}"><ele>${ele.toStringAsFixed(1)}</ele></trkpt>');
+    }
+
+    buffer.writeln('    </trkseg>');
+    buffer.writeln('  </trk>');
+    buffer.writeln('</gpx>');
+
+    return buffer.toString();
+  }
+
+  static String _escapeXml(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+  }
 }
 
 class _RawPoint {

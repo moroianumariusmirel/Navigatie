@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:trailpulse/core/models/activity_type.dart';
+import 'package:trailpulse/core/models/route_model.dart';
 import 'package:trailpulse/core/routing/gpx_parser.dart';
 import 'package:trailpulse/core/routing/osm_routing_service.dart';
 import 'package:trailpulse/core/telemetry/telemetry_service.dart';
@@ -56,6 +57,21 @@ void main() {
       expect(route.minElevationM, equals(1200.0));
       expect(route.waypoints.isNotEmpty, isTrue);
       expect(route.waypoints.first.title, equals('Trailhead Depot'));
+    });
+
+    test('Exports RouteModel to valid GPX XML and parses back accurately', () {
+      final sampleRoute = RouteModel.sampleSchauinsland();
+      final exportedGpx = GpxParser.exportToGpx(sampleRoute);
+
+      expect(exportedGpx, contains('<?xml version="1.0" encoding="UTF-8"?>'));
+      expect(exportedGpx, contains('<gpx version="1.1"'));
+      expect(exportedGpx, contains('<name>${sampleRoute.name}</name>'));
+      expect(exportedGpx, contains('<trkpt'));
+
+      final reParsedRoute = GpxParser.parseGpx(exportedGpx);
+      expect(reParsedRoute.name, equals(sampleRoute.name));
+      expect(reParsedRoute.coordinates.length, equals(sampleRoute.coordinates.length));
+      expect(reParsedRoute.totalDistanceKm, greaterThan(20.0));
     });
 
     test('Parses GeoJSON LineString into valid RouteModel', () {
