@@ -38,3 +38,5 @@ app.*.map.json
 
 # Android Studio will create this file on each sync
 .packages
+
+*.apk

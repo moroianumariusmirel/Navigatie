@@ -8,6 +8,8 @@ import 'package:trailpulse/core/routing/map_matcher.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Telemetry & Spatial Tracking Tests', () {
     test('TelemetryData initial state is valid and progress calculation works', () {
       const data = TelemetryData(
@@ -16,8 +18,18 @@ void main() {
       );
 
       expect(data.progressPercentage, equals(0.5));
-      expect(data.isHeartRatePeakAlert, isTrue);
-      expect(data.heartRateBpm, equals(176));
+      expect(data.isHeartRatePeakAlert, isFalse);
+      expect(data.heartRateBpm, isNull);
+      expect(data.currentSpeedKmH, equals(0.0));
+
+      const activeData = TelemetryData(
+        distanceTraveledKm: 20.0,
+        totalDistanceKm: 40.0,
+        heartRateBpm: 176,
+        isHeartRatePeakAlert: true,
+      );
+      expect(activeData.isHeartRatePeakAlert, isTrue);
+      expect(activeData.heartRateBpm, equals(176));
     });
 
     test('TelemetryService initializes and synchronizes correctly from custom RouteModel', () {

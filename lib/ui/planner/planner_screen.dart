@@ -25,6 +25,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   RouteModel? _customRoute;
   bool _isCalculating = false;
   String? _errorMessage;
+  bool _hasAutoCentered = false;
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
     setState(() {
@@ -269,18 +270,28 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final telemetry = Provider.of<TelemetryService>(context);
     final isCycling = telemetry.activityType == ActivityType.cycling;
     final primaryTheme = isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
+    final userGps = telemetry.userLocation;
 
-    final fallbackRoute = telemetry.activeRoute ??
+    if (!_hasAutoCentered && userGps != null && _plannedPoints.isEmpty && _customRoute == null) {
+      _hasAutoCentered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mapController.move(userGps, 14.5);
+      });
+    }
+
+    final fallbackRoute = telemetry.activeRoute;
+    final displayRoute = _customRoute ?? fallbackRoute ??
         (isCycling ? RouteModel.sampleSchauinsland() : RouteModel.sampleFeldbergHike());
-    final displayRoute = _customRoute ?? fallbackRoute;
 
     final coordinates = _customRoute != null
         ? _customRoute!.coordinates
-        : (_plannedPoints.length >= 2 ? _plannedPoints : fallbackRoute.coordinates);
+        : (_plannedPoints.length >= 2
+            ? _plannedPoints
+            : (telemetry.activeRoute != null ? telemetry.activeRoute!.coordinates : const <LatLng>[]));
 
     final initialCenter = coordinates.isNotEmpty
         ? coordinates.first
-        : const LatLng(47.912, 7.898);
+        : (userGps ?? const LatLng(47.912, 7.898));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -339,7 +350,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       mapController: _mapController,
                       options: MapOptions(
                         initialCenter: initialCenter,
-                        initialZoom: 12.5,
+                        initialZoom: 13.5,
                         minZoom: 4.0,
                         maxZoom: 18.0,
                         onTap: _onMapTap,
@@ -368,9 +379,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                             ],
                           ),
 
-                        // Waypoint / Stop Markers
+                        // Waypoint / Stop Markers and Live User Beacon
                         MarkerLayer(
-                          markers: _buildMapMarkers(primaryTheme, coordinates),
+                          markers: _buildMapMarkers(primaryTheme, coordinates, userGps),
                         ),
                       ],
                     ),
@@ -406,7 +417,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       top: 56,
                       left: 12,
                       right: 12,
-                      child: _buildGuidanceBanner(primaryTheme),
+                      child: _buildGuidanceBanner(primaryTheme, userGps),
                     ),
 
                     // Floating Map Controls (Bottom Right)
@@ -416,6 +427,27 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // Center on My Location Button
+                          _MapQuickActionBtn(
+                            icon: Icons.my_location,
+                            tooltip: 'Center on my location',
+                            iconColor: AppColors.primaryContainer,
+                            onTap: () {
+                              final loc = telemetry.userLocation;
+                              if (loc != null) {
+                                _mapController.move(loc, 15.0);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Acquiring GPS location...'),
+                                    duration: Duration(seconds: 2),
+                                    backgroundColor: AppColors.surfaceContainerHigh,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 6),
                           if (_plannedPoints.isNotEmpty) ...[
                             _MapQuickActionBtn(
                               icon: Icons.undo,
@@ -603,7 +635,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   /// Builds guidance banner providing step-by-step cues for map clicks
-  Widget _buildGuidanceBanner(Color primaryTheme) {
+  Widget _buildGuidanceBanner(Color primaryTheme, LatLng? userGps) {
     String text;
     IconData icon;
     Color iconColor;
@@ -673,7 +705,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
 
     if (_plannedPoints.isEmpty) {
-      text = 'STEP 1: TAP MAP TO SET START POINT (A)';
+      text = userGps != null ? 'TAP MAP OR "USE GPS" FOR START (A)' : 'STEP 1: TAP MAP TO SET START POINT (A)';
       icon = Icons.touch_app;
       iconColor = AppColors.primaryContainer;
     } else if (_plannedPoints.length == 1) {
@@ -708,6 +740,36 @@ class _PlannerScreenState extends State<PlannerScreen> {
               ),
             ),
           ),
+          if (_plannedPoints.isEmpty && userGps != null)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _plannedPoints.add(userGps);
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: primaryTheme.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: primaryTheme),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.my_location, size: 12, color: primaryTheme),
+                    const SizedBox(width: 4),
+                    Text(
+                      'USE GPS (A)',
+                      style: AppTypography.microCaps.copyWith(
+                        color: primaryTheme,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (_plannedPoints.isNotEmpty)
             GestureDetector(
               onTap: _clearPlan,
@@ -727,9 +789,56 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  /// Builds map markers for Start (A), Stops (1..N-2), and Arrival (B)
-  List<Marker> _buildMapMarkers(Color primaryTheme, List<LatLng> coordinates) {
+  /// Builds map markers for Start (A), Stops (1..N-2), Arrival (B), and Live User Beacon
+  List<Marker> _buildMapMarkers(Color primaryTheme, List<LatLng> coordinates, LatLng? userGps) {
     final markers = <Marker>[];
+
+    // 1. Live User GPS Beacon
+    if (userGps != null) {
+      markers.add(
+        Marker(
+          point: userGps,
+          width: 44,
+          height: 44,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryContainer.withOpacity(0.22),
+                  border: Border.all(
+                    color: AppColors.primaryContainer.withOpacity(0.65),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              Container(
+                width: 18,
+                height: 18,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
+                  ],
+                ),
+              ),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (_plannedPoints.isNotEmpty) {
       for (int i = 0; i < _plannedPoints.length; i++) {

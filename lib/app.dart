@@ -56,6 +56,9 @@ class _MainNavigationHostState extends State<MainNavigationHost> {
     final telemetry = context.read<TelemetryService>();
     final status = await PermissionService.requestInitialAppPermissions();
     telemetry.updatePermissionStatus(status);
+    if (status.isLocationGranted) {
+      await telemetry.initGpsTracking(force: true);
+    }
     await telemetry.loadSavedRoutesFromDisk();
   }
 

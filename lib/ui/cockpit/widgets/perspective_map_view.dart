@@ -325,6 +325,13 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
               children: [
                 if (_showLiveOsm) ...[
                   _MiniZoomButton(
+                    icon: Icons.my_location,
+                    onTap: () {
+                      _mapController.move(userPos, 16.0);
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                  _MiniZoomButton(
                     icon: Icons.add,
                     onTap: () {
                       final zoom = _mapController.camera.zoom;

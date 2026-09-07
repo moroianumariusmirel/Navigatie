@@ -87,31 +87,32 @@ class TacticalBentoMatrix extends StatelessWidget {
             childAspectRatio: 1.35,
             children: [
               // 1. Heart Rate (Alert state when peak)
+              // 1. Heart Rate (Standby awaiting smartwatch connection)
               MetricTile(
                 icon: const Icon(Icons.favorite, color: AppColors.error, size: 14),
                 label: 'Heart Rate',
                 badge: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.error,
+                    color: telemetry.heartRateBpm != null ? AppColors.error : AppColors.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    telemetry.heartRateZone,
+                    telemetry.heartRateBpm != null ? telemetry.heartRateZone : 'STANDBY',
                     style: AppTypography.microCaps.copyWith(
-                      color: AppColors.onError,
+                      color: telemetry.heartRateBpm != null ? AppColors.onError : AppColors.onSurfaceVariant,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                value: '${telemetry.heartRateBpm}',
+                value: telemetry.heartRateBpm != null ? '${telemetry.heartRateBpm}' : '--',
                 unit: 'BPM',
-                footerLeft: '>90% Threshold',
-                footerRight: '${telemetry.vo2MaxPercent}% Vo2',
-                isAlert: telemetry.isHeartRatePeakAlert,
+                footerLeft: telemetry.heartRateBpm != null ? '>90% Threshold' : 'Watch Standby',
+                footerRight: telemetry.heartRateBpm != null ? '${telemetry.vo2MaxPercent}% Vo2' : 'BLE / Wear OS',
+                isAlert: telemetry.heartRateBpm != null && telemetry.isHeartRatePeakAlert,
               ),
 
-              // 2. Speed
+              // 2. Speed (Real Hardware GPS Speed)
               MetricTile(
                 label: 'Speed',
                 badge: Container(
@@ -121,7 +122,7 @@ class TacticalBentoMatrix extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '+${telemetry.speedDeltaVsPb} vs PB',
+                    telemetry.currentSpeedKmH > 0 ? 'LIVE GPS' : 'STATIONARY',
                     style: AppTypography.microCaps.copyWith(
                       color: AppColors.primaryContainer,
                       fontWeight: FontWeight.w800,
@@ -130,8 +131,8 @@ class TacticalBentoMatrix extends StatelessWidget {
                 ),
                 value: telemetry.currentSpeedKmH.toStringAsFixed(1),
                 unit: 'KM/H',
-                footerLeft: 'Avg ${telemetry.avgSpeedKmH} km/h',
-                footerRight: 'Max ${telemetry.maxSpeedKmH}',
+                footerLeft: telemetry.currentSpeedKmH > 0 ? '±${telemetry.gpsAccuracyM}m Acc' : 'GPS Active',
+                footerRight: 'Ele ${telemetry.currentElevationM.toInt()}m',
               ),
 
               // 3. Grade
@@ -160,33 +161,33 @@ class TacticalBentoMatrix extends StatelessWidget {
                 footerRight: 'Apex +${telemetry.maxGradePercent.toInt()}%',
               ),
 
-              // 4. Cadence
+              // 4. Cadence (Sensor Standby)
               MetricTile(
                 label: 'Cadence',
                 badge: Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.secondaryFixed,
+                    color: telemetry.cadenceRpm != null ? AppColors.secondaryFixed : AppColors.outlineVariant,
                   ),
                 ),
-                value: '${telemetry.cadenceRpm}',
+                value: telemetry.cadenceRpm != null ? '${telemetry.cadenceRpm}' : '--',
                 unit: 'RPM',
                 valueStyle: AppTypography.dataMetricLg.copyWith(
-                  color: AppColors.secondaryFixed,
+                  color: telemetry.cadenceRpm != null ? AppColors.secondaryFixed : AppColors.onSurfaceVariant,
                 ),
-                footerLeft: 'Smoothness',
-                footerRight: '${telemetry.cadenceSmoothnessPercent}%',
+                footerLeft: telemetry.cadenceRpm != null ? 'Smoothness' : 'Sensor Standby',
+                footerRight: telemetry.cadenceRpm != null ? '${telemetry.cadenceSmoothnessPercent}%' : 'Awaiting Sensor',
               ),
 
               // 5. ETA / Remain
               MetricTile(
                 label: 'ETA / Remain',
                 badge: Text(
-                  'GAP ${telemetry.pbGhostGapSeconds}s',
+                  telemetry.isOffRoute ? 'OFF ROUTE' : 'ON TRACK',
                   style: AppTypography.microCaps.copyWith(
-                    color: AppColors.secondaryFixed,
+                    color: telemetry.isOffRoute ? AppColors.error : AppColors.secondaryFixed,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -196,35 +197,31 @@ class TacticalBentoMatrix extends StatelessWidget {
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                 ),
-                footerLeft: '${telemetry.distanceRemainingKm} km left',
+                footerLeft: '${telemetry.distanceRemainingKm.toStringAsFixed(1)} km left',
                 footerRight: '${(telemetry.progressPercentage * 100).toInt()}% done',
               ),
 
-              // 6. Output Power
+              // 6. Output Power (Sensor Standby)
               MetricTile(
                 label: 'Output Power',
                 badge: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
+                    color: telemetry.powerWatts != null ? AppColors.primaryContainer : AppColors.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    'FTP ${telemetry.powerFtpPercent}%',
+                    telemetry.powerWatts != null ? 'FTP ${telemetry.powerFtpPercent}%' : 'STANDBY',
                     style: AppTypography.microCaps.copyWith(
-                      color: AppColors.onPrimaryContainer,
+                      color: telemetry.powerWatts != null ? AppColors.onPrimaryContainer : AppColors.onSurfaceVariant,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
-                value: '${telemetry.powerWatts}',
-                unit: 'WATTS',
-                valueStyle: AppTypography.dataMetricMd.copyWith(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-                footerLeft: 'NP ${telemetry.normalizedPowerWatts}W',
-                footerRight: '${telemetry.wattsPerKg} W/kg',
+                value: telemetry.powerWatts != null ? '${telemetry.powerWatts}' : '--',
+                unit: 'W',
+                footerLeft: telemetry.powerWatts != null ? '${telemetry.normalizedPowerWatts}W NP' : 'Power Meter',
+                footerRight: telemetry.powerWatts != null ? '${telemetry.wattsPerKg} W/kg' : 'Awaiting Sensor',
               ),
             ],
           ),

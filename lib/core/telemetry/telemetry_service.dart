@@ -8,21 +8,49 @@ import '../models/elevation_point.dart';
 import '../models/activity_type.dart';
 import '../permissions/permission_service.dart';
 import '../storage/gpx_storage_service.dart';
+import '../location/location_service.dart';
+import 'package:geolocator/geolocator.dart' hide ActivityType;
 
 class TelemetryService extends ChangeNotifier {
   TelemetryData _currentData = const TelemetryData();
   RouteModel? _activeRoute;
   ActivityType _activityType = ActivityType.cycling;
   Timer? _simulationTimer;
+  StreamSubscription<Position>? _gpsSubscription;
+  LatLng? _lastKnownGpsPosition;
+  bool _isGpsActive = false;
   bool _isRecording = true;
   double _simStep = 0;
 
-  TelemetryService({RouteModel? initialRoute, bool autoStartSimulation = true}) {
-    _activeRoute = initialRoute ?? RouteModel.sampleSchauinsland();
-    _activityType = _activeRoute!.activityType;
-    _initTelemetryFromRoute(_activeRoute!, initialDistanceKm: 24.1);
+  LatLng? get userLocation => _lastKnownGpsPosition;
+  bool get isGpsActive => _isGpsActive;
+
+  TelemetryService({RouteModel? initialRoute, bool autoStartSimulation = false}) {
+    _activeRoute = initialRoute;
+    if (_activeRoute != null) {
+      _activityType = _activeRoute!.activityType;
+      _initTelemetryFromRoute(_activeRoute!, initialDistanceKm: 0.0);
+    } else {
+      _currentData = const TelemetryData(
+        currentSpeedKmH: 0.0,
+        avgSpeedKmH: 0.0,
+        maxSpeedKmH: 0.0,
+        currentElevationM: 0.0,
+        currentGradePercent: 0.0,
+        distanceTraveledKm: 0.0,
+        distanceRemainingKm: 0.0,
+        totalDistanceKm: 0.0,
+        heartRateBpm: null,
+        heartRateZone: 'STANDBY',
+        cadenceRpm: null,
+        powerWatts: null,
+        wattsPerKg: null,
+      );
+    }
     if (autoStartSimulation) {
       startSimulation();
+    } else {
+      initGpsTracking();
     }
   }
 
@@ -55,6 +83,9 @@ class TelemetryService extends ChangeNotifier {
 
   void updatePermissionStatus(AppPermissionStatus status) {
     _permissionStatus = status;
+    if (status.isLocationGranted) {
+      initGpsTracking(force: true);
+    }
     notifyListeners();
   }
 
@@ -88,14 +119,10 @@ class TelemetryService extends ChangeNotifier {
   }
 
   void setActivityType(ActivityType type) {
-    if (_activityType == type && _activeRoute != null) return;
+    if (_activityType == type) return;
     _activityType = type;
-    if (type == ActivityType.cycling) {
-      _activeRoute = RouteModel.sampleSchauinsland();
-      _initTelemetryFromRoute(_activeRoute!, initialDistanceKm: 24.1);
-    } else {
-      _activeRoute = RouteModel.sampleFeldbergHike();
-      _initTelemetryFromRoute(_activeRoute!, initialDistanceKm: 8.2);
+    if (_activeRoute != null) {
+      _initTelemetryFromRoute(_activeRoute!, initialDistanceKm: _currentData.distanceTraveledKm);
     }
     notifyListeners();
   }
@@ -127,37 +154,33 @@ class TelemetryService extends ChangeNotifier {
       _currentData.currentHeadingDegrees,
     );
 
-    final isCycling = _activityType == ActivityType.cycling;
-    final initialSpeed = isCycling ? 34.2 : 4.6;
-    final initialAvgSpeed = isCycling ? 23.8 : 3.8;
-    final initialMaxSpeed = isCycling ? 58.4 : 7.2;
-    final vam = _calculateVam(initialSpeed, curGrade);
-    final eta = _formatEta(distLeft, initialSpeed, _activityType);
+    final userLat = _lastKnownGpsPosition?.latitude ?? (route.coordinates.isNotEmpty ? route.coordinates.first.latitude : gpsPos.latitude);
+    final userLon = _lastKnownGpsPosition?.longitude ?? (route.coordinates.isNotEmpty ? route.coordinates.first.longitude : gpsPos.longitude);
 
     _currentData = _currentData.copyWith(
-      currentSpeedKmH: initialSpeed,
-      avgSpeedKmH: initialAvgSpeed,
-      maxSpeedKmH: initialMaxSpeed,
+      currentSpeedKmH: 0.0,
+      avgSpeedKmH: 0.0,
+      maxSpeedKmH: 0.0,
       currentElevationM: double.parse(curEle.toStringAsFixed(1)),
       currentGradePercent: double.parse(curGrade.toStringAsFixed(1)),
-      vamAscentRateMh: vam,
+      vamAscentRateMh: 0,
       apexElevationM: apex,
       maxGradePercent: double.parse(maxGrade.toStringAsFixed(1)),
       ascentRemainingM: double.parse(ascentLeft.toStringAsFixed(0)),
       totalDistanceKm: route.totalDistanceKm,
       distanceTraveledKm: double.parse(distTraveled.toStringAsFixed(2)),
       distanceRemainingKm: double.parse(distLeft.toStringAsFixed(1)),
-      etaFormatted: eta,
-      currentLatitude: gpsPos.latitude,
-      currentLongitude: gpsPos.longitude,
+      etaFormatted: '--:--',
+      currentLatitude: userLat,
+      currentLongitude: userLon,
       currentHeadingDegrees: heading,
-      heartRateBpm: isCycling ? 176 : 152,
-      heartRateZone: isCycling ? 'Z5 PEAK' : 'Z3 TEMPO',
-      isHeartRatePeakAlert: isCycling,
-      cadenceRpm: isCycling ? 88 : 112,
-      powerWatts: isCycling ? 310 : 145,
-      powerFtpPercent: isCycling ? 112 : 95,
-      wattsPerKg: isCycling ? 4.2 : 2.1,
+      heartRateBpm: null,
+      heartRateZone: 'STANDBY',
+      isHeartRatePeakAlert: false,
+      cadenceRpm: null,
+      powerWatts: null,
+      powerFtpPercent: 0,
+      wattsPerKg: null,
     );
   }
 
@@ -381,6 +404,121 @@ class TelemetryService extends ChangeNotifier {
     return '$formattedHour:$minute $amPm';
   }
 
+  /// Initializes live hardware GPS tracking from the device sensor
+  Future<void> initGpsTracking({bool force = false}) async {
+    if (_gpsSubscription != null && !force) return;
+    if (force) {
+      await _gpsSubscription?.cancel();
+      _gpsSubscription = null;
+    }
+
+    try {
+      // 1. Instant fix from last known position (sub-second)
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null && _lastKnownGpsPosition == null) {
+        _onGpsPositionUpdate(lastKnown);
+      }
+
+      // 2. Fresh high-accuracy fix
+      final initialFix = await LocationService.getCurrentPosition();
+      if (initialFix != null) {
+        _onGpsPositionUpdate(initialFix);
+      }
+
+      // 3. Continuous real-time GPS stream (distanceFilter: 0 for continuous telemetry updates)
+      _gpsSubscription = LocationService.getPositionStream(distanceFilterMeters: 0).listen(
+        (pos) {
+          _onGpsPositionUpdate(pos);
+        },
+        onError: (err) {
+          debugPrint('[TelemetryService] GPS stream error: $err');
+          _isGpsActive = false;
+          _gpsSubscription?.cancel();
+          _gpsSubscription = null;
+          notifyListeners();
+        },
+      );
+      _isGpsActive = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[TelemetryService] Error initializing GPS tracking: $e');
+    }
+  }
+
+  void _onGpsPositionUpdate(Position pos) {
+    final userGps = LatLng(pos.latitude, pos.longitude);
+    _lastKnownGpsPosition = userGps;
+
+    // Real GPS speed in km/h (speed is in m/s from Geolocator)
+    final rawSpeedKmH = pos.speed * 3.6;
+    // Suppress GPS jitter/drift when stationary (< 0.8 km/h or negative)
+    final realSpeedKmH = (rawSpeedKmH >= 0.8 && pos.speed >= 0) ? rawSpeedKmH : 0.0;
+
+    final realEle = pos.altitude;
+    final realHeading = pos.heading >= 0 ? pos.heading : _currentData.currentHeadingDegrees;
+
+    if (_activeRoute != null && _activeRoute!.coordinates.isNotEmpty) {
+      final projection = LocationService.projectOntoRoute(userGps, _activeRoute!.coordinates);
+      final (curEle, curGrade) = interpolateElevationAndGrade(
+        _activeRoute!.elevationProfile,
+        projection.distanceTraveledKm,
+      );
+      final ascentLeft = computeRemainingAscent(
+        _activeRoute!.elevationProfile,
+        projection.distanceTraveledKm,
+        curEle,
+      );
+      final (apex, maxGrade) = _extractApexAndMaxGrade(_activeRoute!);
+      final vam = _calculateVam(realSpeedKmH, curGrade);
+      final eta = _formatEta(projection.distanceRemainingKm, realSpeedKmH, _activityType);
+
+      _currentData = _currentData.copyWith(
+        currentLatitude: pos.latitude,
+        currentLongitude: pos.longitude,
+        currentHeadingDegrees: realHeading,
+        currentSpeedKmH: double.parse(realSpeedKmH.toStringAsFixed(1)),
+        currentElevationM: realEle > 0 ? double.parse(realEle.toStringAsFixed(1)) : curEle,
+        currentGradePercent: double.parse(curGrade.toStringAsFixed(1)),
+        distanceTraveledKm: double.parse(projection.distanceTraveledKm.toStringAsFixed(2)),
+        distanceRemainingKm: double.parse(projection.distanceRemainingKm.toStringAsFixed(1)),
+        totalDistanceKm: _activeRoute!.totalDistanceKm,
+        ascentRemainingM: double.parse(ascentLeft.toStringAsFixed(0)),
+        apexElevationM: apex,
+        maxGradePercent: double.parse(maxGrade.toStringAsFixed(1)),
+        vamAscentRateMh: vam,
+        etaFormatted: eta,
+        isOffRoute: projection.distanceOffRouteMeters > 40,
+        crossTrackDistanceM: double.parse(projection.distanceOffRouteMeters.toStringAsFixed(1)),
+        gpsAccuracyM: double.parse(pos.accuracy.toStringAsFixed(1)),
+        // Biometrics remain in standby awaiting smartwatch pairing
+        heartRateBpm: null,
+        heartRateZone: 'STANDBY',
+        cadenceRpm: null,
+        powerWatts: null,
+        wattsPerKg: null,
+      );
+    } else {
+      _currentData = _currentData.copyWith(
+        currentLatitude: pos.latitude,
+        currentLongitude: pos.longitude,
+        currentHeadingDegrees: realHeading,
+        currentSpeedKmH: double.parse(realSpeedKmH.toStringAsFixed(1)),
+        currentElevationM: double.parse(realEle.toStringAsFixed(1)),
+        currentGradePercent: 0.0,
+        distanceTraveledKm: 0.0,
+        distanceRemainingKm: 0.0,
+        gpsAccuracyM: double.parse(pos.accuracy.toStringAsFixed(1)),
+        heartRateBpm: null,
+        heartRateZone: 'STANDBY',
+        cadenceRpm: null,
+        powerWatts: null,
+        wattsPerKg: null,
+      );
+    }
+
+    notifyListeners();
+  }
+
   void stopSimulation() {
     _simulationTimer?.cancel();
     _simulationTimer = null;
@@ -388,6 +526,7 @@ class TelemetryService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _gpsSubscription?.cancel();
     stopSimulation();
     super.dispose();
   }

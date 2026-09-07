@@ -16,21 +16,21 @@ class TelemetryData {
   final double maxGradePercent;
   final double ascentRemainingM;
 
-  // Biometrics
-  final int heartRateBpm;
+  // Biometrics (null when awaiting smartwatch connection)
+  final int? heartRateBpm;
   final String heartRateZone;
   final bool isHeartRatePeakAlert;
   final int vo2MaxPercent;
 
-  // Cadence & Dynamics
-  final int cadenceRpm;
+  // Cadence & Dynamics (null when awaiting bike sensor)
+  final int? cadenceRpm;
   final int cadenceSmoothnessPercent;
 
-  // Power & Exertion
-  final int powerWatts;
+  // Power & Exertion (null when awaiting power meter)
+  final int? powerWatts;
   final int powerFtpPercent;
   final int normalizedPowerWatts;
-  final double wattsPerKg;
+  final double? wattsPerKg;
 
   // Distance & Navigation Progress
   final double distanceTraveledKm;
@@ -54,39 +54,43 @@ class TelemetryData {
           : null;
 
   const TelemetryData({
-    this.currentSpeedKmH = 34.2,
-    this.speedDeltaVsPb = 4.1,
-    this.avgSpeedKmH = 23.8,
-    this.maxSpeedKmH = 58.4,
-    this.currentElevationM = 1811.0,
-    this.currentGradePercent = 10.8,
-    this.vamAscentRateMh = 1150,
-    this.apexElevationM = 2191.0,
-    this.maxGradePercent = 16.2,
-    this.ascentRemainingM = 380.0,
-    this.heartRateBpm = 176,
-    this.heartRateZone = 'Z5 PEAK',
-    this.isHeartRatePeakAlert = true,
-    this.vo2MaxPercent = 96,
-    this.cadenceRpm = 88,
-    this.cadenceSmoothnessPercent = 89,
-    this.powerWatts = 310,
-    this.powerFtpPercent = 112,
-    this.normalizedPowerWatts = 284,
-    this.wattsPerKg = 4.2,
-    this.distanceTraveledKm = 24.1,
-    this.distanceRemainingKm = 18.4,
-    this.totalDistanceKm = 42.5,
-    this.etaFormatted = '11:42 AM',
-    this.pbGhostGapSeconds = -14,
-    this.satellitesCount = 18,
-    this.gpsAccuracyM = 1.2,
-    this.currentHeadingDegrees = 315.0,
-    this.crossTrackDistanceM = 1.5,
+    this.currentSpeedKmH = 0.0,
+    this.speedDeltaVsPb = 0.0,
+    this.avgSpeedKmH = 0.0,
+    this.maxSpeedKmH = 0.0,
+    this.currentElevationM = 0.0,
+    this.currentGradePercent = 0.0,
+    this.vamAscentRateMh = 0,
+    this.apexElevationM = 0.0,
+    this.maxGradePercent = 0.0,
+    this.ascentRemainingM = 0.0,
+    this.heartRateBpm,
+    this.heartRateZone = 'STANDBY',
+    this.isHeartRatePeakAlert = false,
+    this.vo2MaxPercent = 0,
+    this.cadenceRpm,
+    this.cadenceSmoothnessPercent = 0,
+    this.powerWatts,
+    this.powerFtpPercent = 0,
+    this.normalizedPowerWatts = 0,
+    this.wattsPerKg,
+    this.distanceTraveledKm = 0.0,
+    this.distanceRemainingKm = 0.0,
+    this.totalDistanceKm = 0.0,
+    this.etaFormatted = '--:--',
+    this.pbGhostGapSeconds = 0,
+    this.satellitesCount = 0,
+    this.gpsAccuracyM = 0.0,
+    this.currentHeadingDegrees = 0.0,
+    this.crossTrackDistanceM = 0.0,
     this.isOffRoute = false,
     this.currentLatitude,
     this.currentLongitude,
   });
+
+  bool get isWatchConnected => heartRateBpm != null;
+  bool get hasCadenceSensor => cadenceRpm != null;
+  bool get hasPowerMeter => powerWatts != null;
 
   double get progressPercentage {
     if (totalDistanceKm <= 0) return 0.0;
