@@ -109,7 +109,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     final telemetry = Provider.of<TelemetryService>(context, listen: false);
-                    telemetry.updateActiveRoute(route);
+                    telemetry.startNavigation(route: route);
                     Navigator.pop(ctx);
                     telemetry.setSelectedTabIndex(2); // Switch to Cockpit HUD
                     ScaffoldMessenger.of(context).showSnackBar(

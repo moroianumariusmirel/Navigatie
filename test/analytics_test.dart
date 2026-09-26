@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:trailpulse/core/models/route_model.dart';
-import 'package:trailpulse/core/models/elevation_point.dart';
-import 'package:trailpulse/core/models/activity_type.dart';
 import 'package:trailpulse/core/telemetry/telemetry_service.dart';
 import 'package:trailpulse/ui/analytics/analytics_screen.dart';
 

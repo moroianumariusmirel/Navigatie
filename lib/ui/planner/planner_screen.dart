@@ -27,9 +27,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
   bool _isCalculating = false;
   String? _errorMessage;
   bool _hasAutoCentered = false;
+  bool _hasDismissedLoadedRoute = false;
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
     setState(() {
+      _hasDismissedLoadedRoute = false;
       if (_plannedPoints.isEmpty) {
         // Point 1: Start Point (A)
         _plannedPoints.add(point);
@@ -112,12 +114,21 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
   }
 
-  void _clearPlan() {
+  void _resetPlannerMapRoute() {
     setState(() {
       _plannedPoints.clear();
       _customRoute = null;
+      _hasDismissedLoadedRoute = true;
       _errorMessage = null;
     });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('PLANNER MAP RESET • ROUTE REMOVED'),
+        duration: Duration(seconds: 2),
+        backgroundColor: AppColors.surfaceContainerHigh,
+      ),
+    );
   }
 
   void _reverseRoute() {
@@ -266,7 +277,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   void _startNavigationInCockpit(RouteModel route) {
     final telemetry = Provider.of<TelemetryService>(context, listen: false);
-    telemetry.updateActiveRoute(route);
+    telemetry.startNavigation(route: route);
     telemetry.setSelectedTabIndex(2); // Index 2 is Cockpit
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -309,15 +320,23 @@ class _PlannerScreenState extends State<PlannerScreen> {
       });
     }
 
-    final fallbackRoute = telemetry.activeRoute;
-    final displayRoute = _customRoute ?? fallbackRoute ??
-        (isCycling ? RouteModel.sampleSchauinsland() : RouteModel.sampleFeldbergHike());
+    final fallbackRoute = _hasDismissedLoadedRoute ? null : telemetry.activeRoute;
+    final displayRoute = _hasDismissedLoadedRoute
+        ? null
+        : (_customRoute ??
+            fallbackRoute ??
+            (isCycling ? RouteModel.sampleSchauinsland() : RouteModel.sampleFeldbergHike()));
 
     final coordinates = _customRoute != null
         ? _customRoute!.coordinates
         : (_plannedPoints.length >= 2
             ? _plannedPoints
-            : (telemetry.activeRoute != null ? telemetry.activeRoute!.coordinates : const <LatLng>[]));
+            : (!_hasDismissedLoadedRoute && telemetry.activeRoute != null
+                ? telemetry.activeRoute!.coordinates
+                : const <LatLng>[]));
+
+    final bool hasLoadedRoute = !_hasDismissedLoadedRoute &&
+        (_customRoute != null || _plannedPoints.isNotEmpty || coordinates.isNotEmpty || (displayRoute != null && displayRoute.coordinates.isNotEmpty));
 
     final initialCenter = coordinates.isNotEmpty
         ? coordinates.first
@@ -357,6 +376,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
             ),
           ],
         ),
+        actions: [
+          if (hasLoadedRoute)
+            IconButton(
+              icon: const Icon(Icons.restart_alt, color: AppColors.error),
+              tooltip: 'Reset map route',
+              onPressed: _resetPlannerMapRoute,
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -406,7 +433,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
 
           // ==========================================
-          // 2. Top Controls Overlay: Activity Toggle + Load GPX
+          // 2. Top Controls Overlay: Activity Toggle + Load GPX / Reset
           // ==========================================
           Positioned(
             top: 10,
@@ -424,10 +451,31 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     }
                   },
                 ),
-                _LoadRouteButton(
-                  onTap: () {
-                    RouteLoaderModal.show(context, telemetry.activityType);
-                  },
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasLoadedRoute) ...[
+                      _ResetRouteButton(
+                        onTap: _resetPlannerMapRoute,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    _LoadRouteButton(
+                      onTap: () async {
+                        final loadedRoute = await RouteLoaderModal.show(context, telemetry.activityType);
+                        if (loadedRoute != null && mounted) {
+                          setState(() {
+                            _plannedPoints.clear();
+                            _customRoute = loadedRoute;
+                            _hasDismissedLoadedRoute = false;
+                          });
+                          if (loadedRoute.coordinates.isNotEmpty) {
+                            _fitRouteBounds(loadedRoute.coordinates);
+                          }
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -440,7 +488,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
             top: 56,
             left: 12,
             right: 12,
-            child: _buildGuidanceBanner(primaryTheme, userGps),
+            child: _buildGuidanceBanner(primaryTheme, userGps, hasLoadedRoute),
           ),
 
           // ==========================================
@@ -471,7 +519,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     }
                   },
                 ),
-                const SizedBox(height: 6),
+                if (hasLoadedRoute) ...[
+                  _MapQuickActionBtn(
+                    icon: Icons.restart_alt,
+                    tooltip: 'Reset map route',
+                    iconColor: AppColors.error,
+                    onTap: _resetPlannerMapRoute,
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 if (_plannedPoints.isNotEmpty) ...[
                   _MapQuickActionBtn(
                     icon: Icons.undo,
@@ -479,20 +535,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     onTap: _undoLastPoint,
                   ),
                   const SizedBox(height: 6),
+                ],
+                if (coordinates.isNotEmpty) ...[
                   _MapQuickActionBtn(
-                    icon: Icons.delete_outline,
-                    tooltip: 'Clear plan',
-                    iconColor: AppColors.error,
-                    onTap: _clearPlan,
+                    icon: Icons.center_focus_strong,
+                    tooltip: 'Fit route bounds',
+                    onTap: () => _fitRouteBounds(coordinates),
                   ),
                   const SizedBox(height: 6),
                 ],
-                _MapQuickActionBtn(
-                  icon: Icons.center_focus_strong,
-                  tooltip: 'Fit route bounds',
-                  onTap: () => _fitRouteBounds(coordinates),
-                ),
-                const SizedBox(height: 6),
                 _MapQuickActionBtn(
                   icon: Icons.add,
                   tooltip: 'Zoom in',
@@ -554,144 +605,222 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
 
           // ==========================================
-          // 6. Floating Bottom Action Dock: [START IN COCKPIT] & [SAVE ROUTE]
+          // 6. Floating Bottom Action Dock: [START IN COCKPIT] & [SAVE ROUTE] or Empty Planning Prompt
           // ==========================================
           Positioned(
             left: 12,
             right: 12,
             bottom: 12,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest.withOpacity(0.94),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.outlineVariant.withOpacity(0.4)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.45),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Compact metrics strip and Details trigger if route exists
-                  if (displayRoute.coordinates.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          Icon(Icons.route, size: 14, color: primaryTheme),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${displayRoute.totalDistanceKm.toStringAsFixed(1)} km',
-                            style: AppTypography.bodySm.copyWith(
+            child: displayRoute == null || !hasLoadedRoute
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLowest.withOpacity(0.94),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.outlineVariant.withOpacity(0.4)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.45),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.touch_app, size: 20, color: primaryTheme),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'MAP READY FOR ROUTE PLANNING',
+                                style: AppTypography.labelCaps.copyWith(
+                                  color: AppColors.onSurface,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Tap map to set Start (A) & Destination (B)',
+                                style: AppTypography.bodySm.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppColors.surfaceContainerHigh,
+                            foregroundColor: primaryTheme,
+                            side: BorderSide(color: primaryTheme.withOpacity(0.6)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () async {
+                            final loadedRoute = await RouteLoaderModal.show(context, telemetry.activityType);
+                            if (loadedRoute != null && mounted) {
+                              setState(() {
+                                _plannedPoints.clear();
+                                _customRoute = loadedRoute;
+                                _hasDismissedLoadedRoute = false;
+                              });
+                              if (loadedRoute.coordinates.isNotEmpty) {
+                                _fitRouteBounds(loadedRoute.coordinates);
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.file_upload_outlined, size: 15),
+                          label: Text(
+                            'LOAD GPX',
+                            style: AppTypography.microCaps.copyWith(
                               fontWeight: FontWeight.w900,
-                              color: AppColors.onSurface,
+                              color: primaryTheme,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          const Text('•', style: TextStyle(color: AppColors.onSurfaceVariant)),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.trending_up, size: 14, color: AppColors.secondaryFixed),
-                          const SizedBox(width: 4),
-                          Text(
-                            '+${displayRoute.totalAscentM.toInt()}m',
-                            style: AppTypography.bodySm.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.onSurface,
-                            ),
-                          ),
-                          const Spacer(),
-                          InkWell(
-                            onTap: () => _showRouteDetailsModal(context, displayRoute, isCycling, primaryTheme),
-                            borderRadius: BorderRadius.circular(6),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'DETAILS',
-                                    style: AppTypography.microCaps.copyWith(
-                                      color: primaryTheme,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.8,
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLowest.withOpacity(0.94),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.outlineVariant.withOpacity(0.4)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.45),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Compact metrics strip and Details trigger if route exists
+                        if (displayRoute.coordinates.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              children: [
+                                Icon(Icons.route, size: 14, color: primaryTheme),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${displayRoute.totalDistanceKm.toStringAsFixed(1)} km',
+                                  style: AppTypography.bodySm.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('•', style: TextStyle(color: AppColors.onSurfaceVariant)),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.trending_up, size: 14, color: AppColors.secondaryFixed),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '+${displayRoute.totalAscentM.toInt()}m',
+                                  style: AppTypography.bodySm.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.onSurface,
+                                  ),
+                                ),
+                                const Spacer(),
+                                InkWell(
+                                  onTap: () => _showRouteDetailsModal(context, displayRoute, isCycling, primaryTheme),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'DETAILS',
+                                          style: AppTypography.microCaps.copyWith(
+                                            color: primaryTheme,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(Icons.keyboard_arrow_up, size: 16, color: primaryTheme),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(width: 2),
-                                  Icon(Icons.keyboard_arrow_up, size: 16, color: primaryTheme),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
 
-                  // Pinned Primary Buttons: [START IN COCKPIT] & [SAVE ROUTE]
-                  Row(
-                    children: [
-                      // Start Navigation in Cockpit Button
-                      Expanded(
-                        flex: 3,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryTheme,
-                            foregroundColor: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            elevation: 4,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        // Pinned Primary Buttons: [START IN COCKPIT] & [SAVE ROUTE]
+                        Row(
+                          children: [
+                            // Start Navigation in Cockpit Button
+                            Expanded(
+                              flex: 3,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryTheme,
+                                  foregroundColor: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
+                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  elevation: 4,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () => _startNavigationInCockpit(displayRoute),
+                                icon: const Icon(Icons.rocket_launch, size: 18),
+                                label: Text(
+                                  'START IN COCKPIT',
+                                  style: AppTypography.labelCaps.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                    letterSpacing: 0.8,
+                                    color: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                          onPressed: () => _startNavigationInCockpit(displayRoute),
-                          icon: const Icon(Icons.rocket_launch, size: 18),
-                          label: Text(
-                            'START IN COCKPIT',
-                            style: AppTypography.labelCaps.copyWith(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12,
-                              letterSpacing: 0.8,
-                              color: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
+                            const SizedBox(width: 10),
+                            // Save Route Button
+                            Expanded(
+                              flex: 2,
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: AppColors.surfaceContainerHigh,
+                                  foregroundColor: AppColors.secondaryFixed,
+                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  side: BorderSide(color: AppColors.outlineVariant.withOpacity(0.5)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () => _saveRoute(displayRoute),
+                                icon: const Icon(Icons.save_outlined, size: 18),
+                                label: Text(
+                                  'SAVE ROUTE',
+                                  style: AppTypography.labelCaps.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11,
+                                    color: AppColors.secondaryFixed,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      // Save Route Button
-                      Expanded(
-                        flex: 2,
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: AppColors.surfaceContainerHigh,
-                            foregroundColor: AppColors.secondaryFixed,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            side: BorderSide(color: AppColors.outlineVariant.withOpacity(0.5)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: () => _saveRoute(displayRoute),
-                          icon: const Icon(Icons.save_outlined, size: 18),
-                          label: Text(
-                            'SAVE ROUTE',
-                            style: AppTypography.labelCaps.copyWith(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 11,
-                              color: AppColors.secondaryFixed,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -771,7 +900,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   /// Builds guidance banner providing step-by-step cues for map clicks
-  Widget _buildGuidanceBanner(Color primaryTheme, LatLng? userGps) {
+  Widget _buildGuidanceBanner(Color primaryTheme, LatLng? userGps, bool hasLoadedRoute) {
     String text;
     IconData icon;
     Color iconColor;
@@ -876,10 +1005,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
               ),
             ),
           ),
-          if (_plannedPoints.isEmpty && userGps != null)
+          if (_plannedPoints.isEmpty && userGps != null) ...[
             GestureDetector(
               onTap: () {
                 setState(() {
+                  _hasDismissedLoadedRoute = false;
                   _plannedPoints.add(userGps);
                 });
               },
@@ -906,9 +1036,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 ),
               ),
             ),
-          if (_plannedPoints.isNotEmpty)
+            if (hasLoadedRoute) const SizedBox(width: 6),
+          ],
+          if (hasLoadedRoute)
             GestureDetector(
-              onTap: _clearPlan,
+              onTap: _resetPlannerMapRoute,
               child: Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Text(
@@ -1389,6 +1521,48 @@ class _ActivityToggle extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tactical Reset Route Button to remove currently loaded map route on Planner
+class _ResetRouteButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ResetRouteButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.error.withOpacity(0.6),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.restart_alt, size: 16, color: AppColors.error),
+            const SizedBox(width: 5),
+            Text(
+              'RESET',
+              style: AppTypography.labelCaps.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: AppColors.error,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

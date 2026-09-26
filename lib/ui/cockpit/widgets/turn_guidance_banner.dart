@@ -254,9 +254,9 @@ class _NavControlPill extends StatelessWidget {
             : AppColors.primary.withOpacity(0.4);
 
     final String tooltip = isActive
-        ? 'Tap to Pause • Hold to Stop'
+        ? 'Tap to Pause • Tap ■ or Hold to Stop'
         : isPaused
-            ? 'Tap to Resume • Hold to Stop'
+            ? 'Tap to Resume • Tap ■ or Hold to Stop'
             : 'Tap to Start Navigation';
 
     return Material(
@@ -324,6 +324,27 @@ class _NavControlPill extends StatelessWidget {
                       fontSize: 8.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.6,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  GestureDetector(
+                    key: const Key('nav_stop_button'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      HapticFeedback.heavyImpact();
+                      onStop?.call();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorContainer.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.stop_rounded,
+                        color: AppColors.error,
+                        size: 14,
+                      ),
                     ),
                   ),
                 ],

@@ -15,8 +15,8 @@ class RouteLoaderModal extends StatefulWidget {
 
   const RouteLoaderModal({super.key, required this.currentActivity});
 
-  static Future<void> show(BuildContext context, ActivityType currentActivity) {
-    return showModalBottomSheet(
+  static Future<RouteModel?> show(BuildContext context, ActivityType currentActivity) {
+    return showModalBottomSheet<RouteModel>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -33,6 +33,16 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
   String? _statusMessage;
   final TextEditingController _pasteController = TextEditingController();
   bool _showPasteArea = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<TelemetryService>(context, listen: false).loadSavedRoutesFromDisk();
+      }
+    });
+  }
 
   Future<void> _pickFile() async {
     setState(() {
@@ -119,8 +129,10 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
         route = GpxParser.parseGpx(content, defaultActivity: widget.currentActivity, fallbackName: fileName);
       }
 
+      // Automatically save imported route to offline library & disk
+      telemetry.saveRouteOffline(route);
       telemetry.updateActiveRoute(route);
-      Navigator.pop(context);
+      Navigator.pop(context, route);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -131,7 +143,7 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'LOADED: ${route.name} (${route.totalDistanceKm} km • +${route.totalAscentM.toInt()}m)',
+                  'LOADED & SAVED: ${route.name} (${route.totalDistanceKm.toStringAsFixed(1)} km • +${route.totalAscentM.toInt()}m)',
                   style: AppTypography.bodySm.copyWith(color: AppColors.primary),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -149,18 +161,28 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
     }
   }
 
-  void _loadPreset(BuildContext context, RouteModel preset) {
+  void _selectRoute(BuildContext context, RouteModel route) {
     final telemetry = Provider.of<TelemetryService>(context, listen: false);
-    telemetry.updateActiveRoute(preset);
-    Navigator.pop(context);
+    telemetry.updateActiveRoute(route);
+    Navigator.pop(context, route);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.surfaceContainerHighest,
-        content: Text(
-          'ACTIVATED: ${preset.name}',
-          style: AppTypography.bodySm.copyWith(color: AppColors.secondaryFixed),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: AppColors.primaryContainer, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'LOADED: ${route.name} (${route.totalDistanceKm.toStringAsFixed(1)} km • +${route.totalAscentM.toInt()}m)',
+                style: AppTypography.bodySm.copyWith(color: AppColors.primary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -173,7 +195,14 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
 
   @override
   Widget build(BuildContext context) {
+    final telemetry = Provider.of<TelemetryService>(context);
+    final savedRoutes = telemetry.savedOfflineRoutes;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.85,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -289,28 +318,93 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
 
             const SizedBox(height: 20),
 
-            // Or Instant Tactical Presets
-            Text(
-              'FAST TACTICAL PRESETS',
-              style: AppTypography.labelCaps.copyWith(
-                color: AppColors.onSurfaceVariant,
-                fontSize: 11,
-              ),
+            // ==========================================
+            // Saved Routes & Files List (User's already saved files)
+            // ==========================================
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.folder_special_outlined, size: 18, color: AppColors.primaryContainer),
+                    const SizedBox(width: 8),
+                    Text(
+                      'MY SAVED FILES & ROUTES (${savedRoutes.length})',
+                      style: AppTypography.labelCaps.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryFixed.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'OFFLINE READY',
+                    style: AppTypography.microCaps.copyWith(
+                      color: AppColors.secondaryFixed,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
-            _PresetTile(
-              icon: Icons.directions_bike,
-              title: 'Schauinsland KOM Ridge (Cycling)',
-              stats: '42.5 km • +1,420m • S1 Flowing Singletrack',
-              onTap: () => _loadPreset(context, RouteModel.sampleSchauinsland()),
-            ),
-            _PresetTile(
-              icon: Icons.hiking,
-              title: 'Feldberg Alpine Cirque Trek (Hiking)',
-              stats: '18.2 km • +980m • T2 Mountain Trail',
-              onTap: () => _loadPreset(context, RouteModel.sampleFeldbergHike()),
-            ),
+            if (savedRoutes.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHigh.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.folder_open, size: 30, color: AppColors.onSurfaceVariant),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No saved routes found on device yet',
+                      style: AppTypography.bodySm.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Import a GPX file above or create and save routes in Planner.',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.microCaps.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...savedRoutes.map((route) {
+                final isCurrentActive = telemetry.activeRoute?.id == route.id;
+                final isCycling = route.activityType == ActivityType.cycling;
+                final themeColor = isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
+
+                return _SavedRouteTile(
+                  route: route,
+                  isActive: isCurrentActive,
+                  themeColor: themeColor,
+                  onTap: () => _selectRoute(context, route),
+                  onDelete: () {
+                    telemetry.removeOfflineRoute(route.id);
+                  },
+                );
+              }),
 
             const SizedBox(height: 12),
 
@@ -385,39 +479,147 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
   }
 }
 
-class _PresetTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String stats;
+class _SavedRouteTile extends StatelessWidget {
+  final RouteModel route;
+  final bool isActive;
+  final Color themeColor;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
-  const _PresetTile({
-    required this.icon,
-    required this.title,
-    required this.stats,
+  const _SavedRouteTile({
+    required this.route,
+    required this.isActive,
+    required this.themeColor,
     required this.onTap,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isCycling = route.activityType == ActivityType.cycling;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
-      ),
-      child: ListTile(
-        dense: true,
-        leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: AppColors.surfaceBright,
-          child: Icon(icon, color: AppColors.primaryContainer, size: 18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isActive ? themeColor : AppColors.outlineVariant.withOpacity(0.25),
+          width: isActive ? 1.5 : 1.0,
         ),
-        title: Text(title, style: AppTypography.bodySm.copyWith(fontWeight: FontWeight.w700)),
-        subtitle: Text(stats, style: AppTypography.microCaps),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.onSurfaceVariant),
-        onTap: onTap,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 17,
+                  backgroundColor: themeColor.withOpacity(0.18),
+                  child: Icon(
+                    isCycling ? Icons.directions_bike : Icons.hiking,
+                    color: themeColor,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              route.name,
+                              style: AppTypography.bodySm.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isActive)
+                            Container(
+                              margin: const EdgeInsets.only(left: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: themeColor.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'ACTIVE',
+                                style: AppTypography.microCaps.copyWith(
+                                  color: themeColor,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            '${route.totalDistanceKm.toStringAsFixed(1)} km',
+                            style: AppTypography.microCaps.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text('•', style: AppTypography.microCaps.copyWith(color: AppColors.outline)),
+                          const SizedBox(width: 6),
+                          Text(
+                            '+${route.totalAscentM.toInt()}m',
+                            style: AppTypography.microCaps.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                          if (route.waypoints.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text('•', style: AppTypography.microCaps.copyWith(color: AppColors.outline)),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${route.waypoints.length} stops',
+                              style: AppTypography.microCaps.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 6),
+                          Text('•', style: AppTypography.microCaps.copyWith(color: AppColors.outline)),
+                          Text(
+                            isCycling ? 'CYCLING' : 'HIKING',
+                            style: AppTypography.microCaps.copyWith(
+                              color: themeColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.onSurfaceVariant),
+                  tooltip: 'Delete file',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onDelete,
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.onSurfaceVariant),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

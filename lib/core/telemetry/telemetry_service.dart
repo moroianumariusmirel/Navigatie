@@ -9,6 +9,7 @@ import '../models/activity_type.dart';
 import '../models/explore_mode.dart';
 import '../permissions/permission_service.dart';
 import '../storage/gpx_storage_service.dart';
+import '../storage/app_preferences_service.dart';
 import '../location/location_service.dart';
 import 'package:geolocator/geolocator.dart' hide ActivityType;
 import '../models/maneuver_instruction.dart';
@@ -173,11 +174,13 @@ class TelemetryService extends ChangeNotifier {
     if (isEnabled) {
       if (!_bentoTileOrder.contains(type)) {
         _bentoTileOrder.add(type);
+        _savePreferences();
         notifyListeners();
       }
     } else {
       if (_bentoTileOrder.length > 1 && _bentoTileOrder.contains(type)) {
         _bentoTileOrder.remove(type);
+        _savePreferences();
         notifyListeners();
       }
     }
@@ -192,6 +195,7 @@ class TelemetryService extends ChangeNotifier {
     final temp = _bentoTileOrder[fromIndex];
     _bentoTileOrder[fromIndex] = _bentoTileOrder[toIndex];
     _bentoTileOrder[toIndex] = temp;
+    _savePreferences();
     notifyListeners();
   }
 
@@ -202,11 +206,13 @@ class TelemetryService extends ChangeNotifier {
     }
     final item = _bentoTileOrder.removeAt(oldIndex);
     _bentoTileOrder.insert(newIndex, item);
+    _savePreferences();
     notifyListeners();
   }
 
   void resetBentoTileOrder() {
     _bentoTileOrder = List.from(defaultBentoTileOrder);
+    _savePreferences();
     notifyListeners();
   }
 
@@ -215,6 +221,7 @@ class TelemetryService extends ChangeNotifier {
 
   void setAudioMode(NavigationAudioMode mode) {
     _turnEngine.audioService.setMode(mode);
+    _savePreferences();
     notifyListeners();
   }
 
@@ -247,6 +254,7 @@ class TelemetryService extends ChangeNotifier {
     } else {
       initGpsTracking();
     }
+    loadPersistentState();
   }
 
   int _selectedTabIndex = 2; // Default to Cockpit (Index 2)
@@ -334,36 +342,143 @@ class TelemetryService extends ChangeNotifier {
     notifyListeners();
   }
 
+  final Set<String> _deletedRouteIds = {};
+  Set<String> get deletedRouteIds => Set.unmodifiable(_deletedRouteIds);
+
+  /// Persists current cockpit configuration, audio mode, activity type, and deleted route IDs
+  Future<void> savePreferences() async {
+    try {
+      final prefs = <String, dynamic>{
+        'bentoTileOrder': _bentoTileOrder.map((t) => t.name).toList(),
+        'audioMode': _turnEngine.audioService.mode.name,
+        'activityType': _activityType.name,
+        'activeRouteId': _activeRoute?.id,
+        'deletedRouteIds': _deletedRouteIds.toList(),
+      };
+      await AppPreferencesService.savePreferences(prefs);
+    } catch (e) {
+      debugPrint('[TelemetryService] Error saving preferences: $e');
+    }
+  }
+
+  Future<void> _savePreferences() => savePreferences();
+
+  /// Restores user cockpit preferences and applies deleted route IDs
+  Future<void> loadPersistentState() async {
+    try {
+      final prefs = await AppPreferencesService.loadPreferences();
+      if (prefs.isEmpty) return;
+
+      // 1. Deleted route IDs
+      if (prefs['deletedRouteIds'] is List) {
+        final list = (prefs['deletedRouteIds'] as List).map((e) => e.toString()).toList();
+        _deletedRouteIds.clear();
+        _deletedRouteIds.addAll(list);
+
+        // Prune initial sample routes if user had previously deleted them
+        _savedOfflineRoutes.removeWhere((r) => _deletedRouteIds.contains(r.id));
+      }
+
+      // 2. Bento tile order and enabled metrics
+      if (prefs['bentoTileOrder'] is List) {
+        final orderNames = (prefs['bentoTileOrder'] as List).map((e) => e.toString()).toList();
+        final restoredTiles = <BentoTileType>[];
+        for (final name in orderNames) {
+          final matching = BentoTileType.values.where((t) => t.name == name).firstOrNull;
+          if (matching != null && !restoredTiles.contains(matching)) {
+            restoredTiles.add(matching);
+          }
+        }
+        if (restoredTiles.isNotEmpty) {
+          _bentoTileOrder = restoredTiles;
+        }
+      }
+
+      // 3. Audio Navigation Mode
+      if (prefs['audioMode'] is String) {
+        final modeName = prefs['audioMode'] as String;
+        final matchingMode = NavigationAudioMode.values.where((m) => m.name == modeName).firstOrNull;
+        if (matchingMode != null) {
+          _turnEngine.audioService.setMode(matchingMode);
+        }
+      }
+
+      // 4. Activity Type
+      if (prefs['activityType'] is String) {
+        final actName = prefs['activityType'] as String;
+        final matchingAct = ActivityType.values.where((a) => a.name == actName).firstOrNull;
+        if (matchingAct != null) {
+          _activityType = matchingAct;
+        }
+      }
+
+      // 5. Active Route ID
+      if (prefs['activeRouteId'] is String) {
+        final activeId = prefs['activeRouteId'] as String;
+        if (_activeRoute == null) {
+          final matchingRoute = _savedOfflineRoutes.where((r) => r.id == activeId).firstOrNull;
+          if (matchingRoute != null) {
+            updateActiveRoute(matchingRoute);
+          }
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[TelemetryService] Error loading persistent state: $e');
+    }
+  }
+
   /// Loads saved GPX files from device storage into the offline routes library
   Future<void> loadSavedRoutesFromDisk() async {
     final loaded = await GpxStorageService.loadAllSavedGpxRoutes();
     bool addedAny = false;
     for (final route in loaded) {
+      if (_deletedRouteIds.contains(route.id)) continue;
       if (!_savedOfflineRoutes.any((r) => r.id == route.id)) {
         _savedOfflineRoutes.add(route);
         addedAny = true;
       }
     }
+
+    if (_activeRoute == null && _savedOfflineRoutes.isNotEmpty) {
+      final prefs = await AppPreferencesService.loadPreferences();
+      final activeId = prefs['activeRouteId'] as String?;
+      if (activeId != null) {
+        final matching = _savedOfflineRoutes.where((r) => r.id == activeId).firstOrNull;
+        if (matching != null) {
+          updateActiveRoute(matching);
+        }
+      }
+    }
+
     if (addedAny) {
       notifyListeners();
     }
   }
 
-  void saveRouteOffline(RouteModel route) {
+  Future<void> saveRouteOffline(RouteModel route) async {
+    _deletedRouteIds.remove(route.id);
     final existingIndex = _savedOfflineRoutes.indexWhere((r) => r.id == route.id);
     if (existingIndex >= 0) {
       _savedOfflineRoutes[existingIndex] = route;
     } else {
       _savedOfflineRoutes.insert(0, route);
     }
-    GpxStorageService.saveGpxToFile(route);
     notifyListeners();
+    await GpxStorageService.saveGpxToFile(route);
+    await savePreferences();
   }
 
-  void removeOfflineRoute(String routeId) {
+  Future<void> removeOfflineRoute(String routeId) async {
+    _deletedRouteIds.add(routeId);
     _savedOfflineRoutes.removeWhere((r) => r.id == routeId);
-    GpxStorageService.deleteGpxFile(routeId);
+    if (_activeRoute?.id == routeId) {
+      _activeRoute = null;
+    }
     notifyListeners();
+    await GpxStorageService.deleteGpxFile(routeId);
+    await savePreferences();
   }
 
   void setActivityType(ActivityType type) {
@@ -372,6 +487,7 @@ class TelemetryService extends ChangeNotifier {
     if (_activeRoute != null) {
       _initTelemetryFromRoute(_activeRoute!, initialDistanceKm: _currentData.distanceTraveledKm);
     }
+    _savePreferences();
     notifyListeners();
   }
 
@@ -381,6 +497,7 @@ class TelemetryService extends ChangeNotifier {
     _simStep = 0;
     _turnEngine.initRoute(newRoute);
     _initTelemetryFromRoute(newRoute, initialDistanceKm: 0.0);
+    _savePreferences();
     notifyListeners();
   }
 
@@ -399,7 +516,11 @@ class TelemetryService extends ChangeNotifier {
     _lastTrackedElevation = _currentData.currentElevationM;
     _navigationState = NavigationState.active;
     _isRecording = true;
-    startSimulation();
+    if (!_isGpsActive || _lastKnownGpsPosition == null) {
+      startSimulation();
+    } else {
+      stopSimulation();
+    }
     notifyListeners();
   }
 
@@ -425,8 +546,12 @@ class TelemetryService extends ChangeNotifier {
     _navigationState = NavigationState.active;
     _isRecording = true;
     _sessionStartTime = DateTime.now();
-    if (_simulationTimer == null || !_simulationTimer!.isActive) {
-      startSimulation();
+    if (!_isGpsActive || _lastKnownGpsPosition == null) {
+      if (_simulationTimer == null || !_simulationTimer!.isActive) {
+        startSimulation();
+      }
+    } else {
+      stopSimulation();
     }
     notifyListeners();
   }
@@ -554,9 +679,12 @@ class TelemetryService extends ChangeNotifier {
     );
   }
 
+  double _simDistanceTraveledKm = 0.0;
+
   /// High-fidelity telemetry simulator (5Hz - 200ms) to animate HUD & 3D Cockpit
   void startSimulation() {
     _simulationTimer?.cancel();
+    _simDistanceTraveledKm = _currentData.distanceTraveledKm;
     _simulationTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
       if (!_isRecording || _activeRoute == null) return;
       _simStep += 0.05;
@@ -567,7 +695,7 @@ class TelemetryService extends ChangeNotifier {
       final totalDist = _activeRoute!.totalDistanceKm;
 
       // 1. Current slope estimation for physics response
-      final currentDistance = _currentData.distanceTraveledKm;
+      final currentDistance = _simDistanceTraveledKm;
       final (currentElevation, currentGrade) = interpolateElevationAndGrade(profile, currentDistance);
 
       // 2. Realistic dynamics oscillations based on activity & slope pitch
@@ -584,11 +712,12 @@ class TelemetryService extends ChangeNotifier {
       );
 
       // 3. Distance & Elevation progression along route
-      double nextDistanceTraveled = currentDistance + (currentSpeed / 3600.0) * 0.2;
-      if (totalDist > 0 && nextDistanceTraveled >= totalDist) {
-        nextDistanceTraveled = 0.0; // Loop seamlessly for continuous HUD preview
+      _simDistanceTraveledKm += (currentSpeed / 3600.0) * 0.2;
+      if (totalDist > 0 && _simDistanceTraveledKm >= totalDist) {
+        _simDistanceTraveledKm = 0.0; // Loop seamlessly for continuous HUD preview
         _turnEngine.initRoute(_activeRoute!);
       }
+      final nextDistanceTraveled = _simDistanceTraveledKm;
       final distanceLeft = math.max(0.0, totalDist - nextDistanceTraveled);
       final progress = totalDist > 0 ? (nextDistanceTraveled / totalDist).clamp(0.0, 1.0) : 0.0;
 
@@ -903,6 +1032,11 @@ class TelemetryService extends ChangeNotifier {
   }
 
   void _onGpsPositionUpdate(Position pos) {
+    // When real device GPS fix is received, stop synthetic simulation immediately
+    if (_simulationTimer != null && _simulationTimer!.isActive) {
+      stopSimulation();
+    }
+
     final userGps = LatLng(pos.latitude, pos.longitude);
     _lastKnownGpsPosition = userGps;
 

@@ -54,6 +54,7 @@ class _MainNavigationHostState extends State<MainNavigationHost> {
   Future<void> _initializePermissionsAndStorage() async {
     if (!mounted) return;
     final telemetry = context.read<TelemetryService>();
+    await telemetry.loadPersistentState();
     final status = await PermissionService.requestInitialAppPermissions();
     telemetry.updatePermissionStatus(status);
     if (status.isLocationGranted) {

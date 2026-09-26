@@ -153,7 +153,7 @@ void main() {
       expect(find.text('CYCLOSM • CYCLE TRACKS'), findsOneWidget);
     });
 
-    testWidgets('Tapping LOAD GPX opens Route Loader Modal', (WidgetTester tester) async {
+    testWidgets('Tapping LOAD GPX opens Route Loader Modal and displays saved files list', (WidgetTester tester) async {
       final telemetryService = TelemetryService(autoStartSimulation: false);
 
       await tester.pumpWidget(
@@ -174,15 +174,51 @@ void main() {
       // Modal bottom sheet should be visible
       expect(find.text('IMPORT ROUTE / TRACK'), findsOneWidget);
       expect(find.text('SELECT GPX / ROUTE FILE'), findsOneWidget);
-      expect(find.text('FAST TACTICAL PRESETS'), findsOneWidget);
+      expect(find.textContaining('MY SAVED FILES & ROUTES'), findsOneWidget);
+      expect(find.text('OFFLINE READY'), findsOneWidget);
+      expect(find.text('FAST TACTICAL PRESETS'), findsNothing);
 
-      // Tap preset tile to load preset route
-      await tester.tap(find.text('Schauinsland KOM Ridge (Cycling)'));
+      // Verify that saved routes list contains initial routes
+      expect(find.text('Schauinsland Alpine Ridge Traverse'), findsOneWidget);
+
+      // Tap a saved route tile to load it into the Planner
+      await tester.tap(find.text('Schauinsland Alpine Ridge Traverse'));
       await tester.pumpAndSettle();
 
-      // Verify active route loaded in telemetry
+      // Verify route was activated in telemetry and loaded in Planner
       expect(telemetryService.activeRoute, isNotNull);
       expect(telemetryService.activeRoute!.name, contains('Schauinsland'));
+    });
+
+    testWidgets('RouteLoaderModal allows deleting a saved file from the list', (WidgetTester tester) async {
+      final telemetryService = TelemetryService(autoStartSimulation: false);
+      final initialCount = telemetryService.savedOfflineRoutes.length;
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<TelemetryService>.value(
+          value: telemetryService,
+          child: const MaterialApp(
+            home: PlannerScreen(),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tap(find.text('LOAD GPX'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('MY SAVED FILES & ROUTES ($initialCount)'), findsOneWidget);
+
+      // Tap the delete button on the first saved route
+      final deleteBtnFinder = find.byTooltip('Delete file');
+      expect(deleteBtnFinder, findsWidgets);
+      await tester.tap(deleteBtnFinder.first);
+      await tester.pumpAndSettle();
+
+      // Count should be decremented
+      expect(telemetryService.savedOfflineRoutes.length, equals(initialCount - 1));
+      expect(find.textContaining('MY SAVED FILES & ROUTES (${initialCount - 1})'), findsOneWidget);
     });
 
     testWidgets('RouteLoaderModal allows pasting and parsing raw GPX track', (WidgetTester tester) async {
@@ -202,7 +238,9 @@ void main() {
       await tester.tap(find.text('LOAD GPX'));
       await tester.pumpAndSettle();
 
-      // Tap toggle to show raw paste area
+      // Scroll down and tap toggle to show raw paste area
+      await tester.ensureVisible(find.text('PASTE RAW GPX / GEOJSON TEXT'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('PASTE RAW GPX / GEOJSON TEXT'));
       await tester.pumpAndSettle();
 
@@ -221,6 +259,8 @@ void main() {
 </gpx>''';
 
       await tester.enterText(find.byType(TextField), pasteXml);
+      await tester.ensureVisible(find.text('PARSE & LOAD PASTED TRACK'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('PARSE & LOAD PASTED TRACK'));
       await tester.pumpAndSettle();
 
@@ -296,6 +336,71 @@ void main() {
 
       expect(telemetryService.selectedTabIndex, equals(2)); // Index 2 is Cockpit
       expect(telemetryService.activeRoute, isNotNull);
+      expect(telemetryService.navigationState, equals(NavigationState.active));
+
+      // Clean up navigation session
+      telemetryService.stopNavigation();
+    });
+
+    testWidgets('RESET button removes currently loaded route from Planner map without affecting Cockpit activeRoute or saved offline routes', (WidgetTester tester) async {
+      final sampleRoute = RouteModel.sampleSchauinsland();
+      final telemetryService = TelemetryService(
+        initialRoute: sampleRoute,
+        autoStartSimulation: false,
+      );
+      final initialOfflineCount = telemetryService.savedOfflineRoutes.length;
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<TelemetryService>.value(
+          value: telemetryService,
+          child: const MaterialApp(
+            home: PlannerScreen(),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // With initialRoute active, Planner map displays the route and RESET button
+      expect(find.text('RESET'), findsWidgets);
+      expect(find.byType(PolylineLayer), findsOneWidget);
+      expect(find.text('START IN COCKPIT'), findsOneWidget);
+
+      // Tap RESET button
+      final resetButtons = find.text('RESET');
+      await tester.tap(resetButtons.first);
+      await tester.pumpAndSettle();
+
+      // Verify SnackBar confirmation
+      expect(find.text('PLANNER MAP RESET • ROUTE REMOVED'), findsOneWidget);
+
+      // Verify route was removed from Planner map viewport
+      expect(find.byType(PolylineLayer), findsNothing);
+      expect(find.text('MAP READY FOR ROUTE PLANNING'), findsOneWidget);
+      expect(find.text('Tap map to set Start (A) & Destination (B)'), findsOneWidget);
+      expect(find.text('START IN COCKPIT'), findsNothing);
+
+      // CRITICAL: Verify Cockpit activeRoute is 100% UNTOUCHED
+      expect(telemetryService.activeRoute, isNotNull);
+      expect(telemetryService.activeRoute!.id, equals(sampleRoute.id));
+      expect(telemetryService.activeRoute!.name, equals(sampleRoute.name));
+
+      // CRITICAL: Verify offline routes are 100% UNTOUCHED
+      expect(telemetryService.savedOfflineRoutes.length, equals(initialOfflineCount));
+
+      // Verify user can now start planning a brand new route on the clean map
+      final mapFinder = find.byType(FlutterMap);
+      await tester.tapAt(tester.getCenter(mapFinder) + const Offset(-40, -40));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('STEP 2: TAP MAP TO SET ARRIVAL POINT (B)'), findsOneWidget);
+
+      await tester.tapAt(tester.getCenter(mapFinder) + const Offset(40, 40));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('ROUTE ACTIVE • TAP TO ADD STOPS (0 STOPS)'), findsOneWidget);
+      expect(find.byType(PolylineLayer), findsOneWidget);
+      expect(find.text('START IN COCKPIT'), findsOneWidget);
     });
   });
 

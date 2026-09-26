@@ -64,9 +64,6 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
     if (newPos != null && newPos != oldWidget.telemetry.currentPosition) {
       _mapController.move(newPos, _mapController.camera.zoom);
     }
-    if (widget.telemetry.currentHeadingDegrees != oldWidget.telemetry.currentHeadingDegrees) {
-      _mapController.rotate(widget.telemetry.currentHeadingDegrees);
-    }
   }
 
   @override
@@ -100,7 +97,7 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                 options: MapOptions(
                   initialCenter: userPos,
                   initialZoom: 14.2,
-                  initialRotation: widget.telemetry.currentHeadingDegrees,
+                  initialRotation: 0.0,
                   minZoom: 6.0,
                   maxZoom: 19.0,
                   interactionOptions: const InteractionOptions(
@@ -348,6 +345,7 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                     icon: Icons.my_location,
                     onTap: () {
                       _mapController.move(userPos, 16.0);
+                      _mapController.rotate(0.0);
                     },
                   ),
                   const SizedBox(width: 4),

@@ -166,4 +166,29 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     }
   });
+
+  testWidgets('Cockpit navigation control pill starts navigation, displays explicit stop button, and single tap on stop button stops navigation', (WidgetTester tester) async {
+    await tester.pumpWidget(const TrailPulseApp());
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final navButton = find.byKey(const Key('nav_play_pause_button'));
+    expect(navButton, findsOneWidget);
+
+    // Initial state: Stopped, stop button not shown
+    expect(find.byKey(const Key('nav_stop_button')), findsNothing);
+
+    // Tap to start navigation
+    await tester.tap(navButton);
+    await tester.pump();
+    expect(find.text('NAVIGATION ENGAGED • TELEMETRY ACTIVE'), findsOneWidget);
+    expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    expect(find.byKey(const Key('nav_stop_button')), findsOneWidget);
+
+    // Tap explicit stop button directly (single tap, no hold needed)
+    await tester.tap(find.byKey(const Key('nav_stop_button')));
+    await tester.pump();
+    expect(find.text('NAVIGATION STOPPED • PROGRESS RESET'), findsOneWidget);
+    expect(find.byKey(const Key('nav_stop_button')), findsNothing);
+    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+  });
 }
