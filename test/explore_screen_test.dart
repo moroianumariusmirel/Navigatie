@@ -11,7 +11,7 @@ void main() {
     OsmTileProviders.overrideTileProvider = MockWhiteTileProvider();
   });
 
-  testWidgets('ExploreScreen renders top activity toggle, online/offline switcher, and OSM traces', (WidgetTester tester) async {
+  testWidgets('ExploreScreen (Routes) renders top activity toggle, search, and saved routes list', (WidgetTester tester) async {
     final telemetryService = TelemetryService(autoStartSimulation: false);
 
     await tester.pumpWidget(
@@ -25,33 +25,25 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 100));
 
+    // Verify AppBar title
+    expect(find.text('ROUTES & TRAILS'), findsOneWidget);
+
     // Verify top controls matching PlannerScreen
     expect(find.text('CYCLING'), findsWidgets);
     expect(find.text('HIKING'), findsOneWidget);
     expect(find.text('LOAD GPX'), findsOneWidget);
 
-    // Verify Online vs Offline switcher
-    expect(find.text('ONLINE OSM TRACES'), findsOneWidget);
-    expect(find.text('OFFLINE SAVED'), findsOneWidget);
-
-    // Verify online traces list is rendered
+    // Verify search input for saved routes
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.textContaining('Schauinsland Gravel King'), findsOneWidget);
+
+    // Verify offline section headers and saved routes
+    expect(find.text('100% OFFLINE READY'), findsOneWidget);
+    expect(find.textContaining('SAVED & IMPORTED ROUTES'), findsOneWidget);
 
     // Toggle to HIKING mode
     await tester.tap(find.text('HIKING'));
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(telemetryService.activityType, equals(ActivityType.hiking));
-    expect(find.textContaining('Feldberg Cirque'), findsOneWidget);
-
-    // Switch to OFFLINE SAVED tab
-    await tester.tap(find.text('OFFLINE SAVED'));
-    await tester.pump(const Duration(milliseconds: 100));
-
-    // Verify offline section headers and saved routes
-    expect(find.text('100% OFFLINE READY'), findsOneWidget);
-    expect(find.text('REGIONAL OFFLINE MAP PACKAGES'), findsOneWidget);
-    expect(find.textContaining('Black Forest & Schauinsland'), findsOneWidget);
   });
 }

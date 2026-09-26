@@ -35,8 +35,8 @@ class BottomNavBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _NavItem(
-            icon: Icons.explore,
-            label: 'Explore',
+            icon: Icons.route,
+            label: 'Routes',
             isSelected: currentIndex == 0,
             onTap: () => onTabSelected(0),
           ),

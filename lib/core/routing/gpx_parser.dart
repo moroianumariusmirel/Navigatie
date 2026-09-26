@@ -4,9 +4,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart';
 import '../models/route_model.dart';
 import '../models/elevation_point.dart';
-import '../models/maneuver_instruction.dart';
 import '../models/activity_type.dart';
 import '../models/waypoint_model.dart';
+import '../navigation/turn_navigation_engine.dart';
 
 class GpxParser {
   static const Distance _distance = Distance();
@@ -201,16 +201,11 @@ class GpxParser {
               'Rocky Path': 0.15,
             },
       elevationProfile: elevationProfile,
-      maneuvers: [
-        ManeuverInstruction(
-          distanceToManeuverMeters: 120,
-          maneuverType: ManeuverType.straight,
-          instructionTitle: 'Follow Imported Track',
-          trailName: routeName,
-          surfaceType: 'Trail',
-          apexElevationM: maxEle,
-        ),
-      ],
+      maneuvers: TurnNavigationEngine.extractManeuversFromCoordinates(
+        coordinates: coordinates,
+        activityType: defaultActivity,
+        routeName: routeName,
+      ),
       waypoints: finalWaypoints,
       coordinates: coordinates,
     );

@@ -6,8 +6,6 @@ import '../../core/models/maneuver_instruction.dart';
 import 'widgets/cockpit_header.dart';
 import 'widgets/perspective_map_view.dart';
 import 'widgets/tactical_bento_matrix.dart';
-import 'widgets/elevation_slicer_widget.dart';
-import 'widgets/tactical_action_bar.dart';
 
 class CockpitScreen extends StatelessWidget {
   const CockpitScreen({super.key});
@@ -17,7 +15,9 @@ class CockpitScreen extends StatelessWidget {
     final telemetryService = context.watch<TelemetryService>();
     final telemetry = telemetryService.currentData;
     final activeRoute = telemetryService.activeRoute;
-    final currentManeuver = activeRoute?.maneuvers.first ?? const ManeuverInstruction();
+    final currentManeuver = telemetryService.currentManeuver ??
+        activeRoute?.maneuvers.firstOrNull ??
+        const ManeuverInstruction();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -42,44 +42,57 @@ class CockpitScreen extends StatelessWidget {
                       maneuver: currentManeuver,
                       route: activeRoute,
                       activityType: telemetryService.activityType,
-                    ),
-
-                    // 2. Tactical Bento Matrix (6 Live Biomechanical Metrics)
-                    TacticalBentoMatrix(
-                      telemetry: telemetry,
-                    ),
-
-                    // 3. Elevation Contour Slicer & Slope Severity
-                    ElevationSlicerWidget(
-                      telemetry: telemetry,
-                      route: activeRoute,
-                    ),
-
-                    // 4. Interactive Tactile Controls Drawer / Action Strip
-                    TacticalActionBar(
-                      isRecording: telemetryService.isRecording,
-                      onToggleRecording: () => telemetryService.toggleRecording(),
-                      onMarkWaypoint: () {
+                      audioMode: telemetryService.audioMode,
+                      onAudioModeChanged: telemetryService.setAudioMode,
+                      navigationState: telemetryService.navigationState,
+                      onPlayPause: () {
+                        final willBeActive = telemetryService.navigationState != NavigationState.active;
+                        telemetryService.togglePlayPauseNavigation();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Waypoint Lap Marked • GPS Locked'),
-                            duration: Duration(seconds: 2),
-                            backgroundColor: AppColors.surfaceContainerHigh,
+                          SnackBar(
+                            content: Text(
+                              willBeActive
+                                  ? 'NAVIGATION ENGAGED • TELEMETRY ACTIVE'
+                                  : 'NAVIGATION PAUSED • TELEMETRY STANDBY',
+                            ),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: willBeActive
+                                ? AppColors.surfaceContainerHigh
+                                : AppColors.surfaceBright,
                           ),
                         );
                       },
-                      onTriggerSos: () {
+                      onStop: () {
+                        telemetryService.stopNavigation();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('SOS Emergency Beacon Broadcast Initiated'),
-                            duration: Duration(seconds: 3),
+                            content: Text('NAVIGATION STOPPED • PROGRESS RESET'),
+                            duration: Duration(seconds: 2),
                             backgroundColor: AppColors.errorContainer,
                           ),
                         );
                       },
                     ),
 
-                    const SizedBox(height: 24),
+                    // 2. Tactical Bento Matrix (Live Biomechanical & Route Metrics)
+                    TacticalBentoMatrix(
+                      telemetry: telemetry,
+                      route: activeRoute,
+                      tileOrder: telemetryService.bentoTileOrder,
+                      onSwapTiles: (from, to) {
+                        telemetryService.swapBentoTiles(from, to);
+                      },
+                      onResetOrder: () {
+                        telemetryService.resetBentoTileOrder();
+                      },
+                      onToggleTile: (type, isEnabled) {
+                        telemetryService.setTileEnabled(type, isEnabled);
+                      },
+                    ),
+
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),

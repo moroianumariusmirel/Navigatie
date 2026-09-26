@@ -9,6 +9,8 @@ import '../../../core/models/maneuver_instruction.dart';
 import '../../../core/models/route_model.dart';
 import '../../../core/models/activity_type.dart';
 import '../../../core/maps/osm_tile_providers.dart';
+import '../../../core/navigation/audio_navigation_service.dart';
+import '../../../core/telemetry/telemetry_service.dart';
 import 'turn_guidance_banner.dart';
 
 class PerspectiveMapView extends StatefulWidget {
@@ -16,6 +18,11 @@ class PerspectiveMapView extends StatefulWidget {
   final ManeuverInstruction maneuver;
   final RouteModel? route;
   final ActivityType activityType;
+  final NavigationAudioMode audioMode;
+  final ValueChanged<NavigationAudioMode>? onAudioModeChanged;
+  final NavigationState navigationState;
+  final VoidCallback? onPlayPause;
+  final VoidCallback? onStop;
 
   const PerspectiveMapView({
     super.key,
@@ -23,6 +30,11 @@ class PerspectiveMapView extends StatefulWidget {
     required this.maneuver,
     this.route,
     this.activityType = ActivityType.cycling,
+    this.audioMode = NavigationAudioMode.voiceAndChimes,
+    this.onAudioModeChanged,
+    this.navigationState = NavigationState.stopped,
+    this.onPlayPause,
+    this.onStop,
   });
 
   @override
@@ -216,7 +228,15 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
             top: 12,
             left: 12,
             right: 12,
-            child: TurnGuidanceBanner(maneuver: widget.maneuver),
+            child: TurnGuidanceBanner(
+              maneuver: widget.maneuver,
+              audioMode: widget.audioMode,
+              onAudioModeChanged: widget.onAudioModeChanged,
+              isOffRoute: widget.telemetry.isOffRoute,
+              navigationState: widget.navigationState,
+              onPlayPause: widget.onPlayPause,
+              onStop: widget.onStop,
+            ),
           ),
 
           // 3. PB Ghost Badge

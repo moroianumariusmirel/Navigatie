@@ -6,6 +6,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../core/telemetry/telemetry_service.dart';
 import '../../core/models/activity_type.dart';
+import '../../core/models/explore_mode.dart';
 import '../../core/models/route_model.dart';
 import '../../core/models/waypoint_model.dart';
 import '../../core/maps/osm_tile_providers.dart';
@@ -146,6 +147,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   void _saveRoute(RouteModel route) {
     final telemetry = Provider.of<TelemetryService>(context, listen: false);
+    final isCycling = telemetry.activityType == ActivityType.cycling;
+    final primaryTheme = isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
     final nameController = TextEditingController(text: route.name);
 
     showDialog(
@@ -165,7 +168,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Enter a descriptive name for this tactical route:',
+              'Enter a descriptive name for this tactical route. It will be stored in your offline library and available under "Offline Saved" in Explorer:',
               style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
@@ -182,7 +185,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.primaryContainer),
+                  borderSide: BorderSide(color: primaryTheme),
                 ),
               ),
             ),
@@ -198,26 +201,51 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryContainer,
-              foregroundColor: AppColors.onPrimary,
+              backgroundColor: primaryTheme,
+              foregroundColor: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
             ),
             onPressed: () {
               final newName = nameController.text.trim();
+              final timestamp = DateTime.now().millisecondsSinceEpoch;
+              final isSample = route.id.isEmpty ||
+                  route.id.startsWith('schauinsland_') ||
+                  route.id.startsWith('feldberg_') ||
+                  route.id.startsWith('sample_');
+              final routeId = isSample ? 'saved_plan_$timestamp' : route.id;
+
               final saved = route.copyWith(
+                id: routeId,
                 name: newName.isNotEmpty ? newName : route.name,
               );
+
+              // 1. Save to offline library (prepends to offline routes)
               telemetry.saveRouteOffline(saved);
+
+              // 2. Set Explorer mode to offline so it opens directly in "OFFLINE SAVED"
+              telemetry.setExploreMode(ExploreMode.offline);
+
               Navigator.of(ctx).pop();
+
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: AppColors.surfaceContainerHighest,
+                  behavior: SnackBarBehavior.floating,
+                  margin: const EdgeInsets.only(bottom: 96, left: 12, right: 12),
+                  duration: const Duration(seconds: 4),
+                  action: SnackBarAction(
+                    label: 'VIEW IN ROUTES',
+                    textColor: primaryTheme,
+                    onPressed: () {
+                      telemetry.setSelectedTabIndex(0); // Index 0 is Routes page
+                    },
+                  ),
                   content: Row(
                     children: [
                       const Icon(Icons.check_circle, color: AppColors.primaryContainer, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Route "${saved.name}" saved to offline library!',
+                          'Route "${saved.name}" saved to Offline Library in Explorer!',
                           style: AppTypography.bodySm.copyWith(color: AppColors.onSurface),
                         ),
                       ),
@@ -244,6 +272,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AppColors.surfaceContainerHighest,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 96, left: 12, right: 12),
         duration: const Duration(seconds: 2),
         content: Row(
           children: [
@@ -328,309 +358,415 @@ class _PlannerScreenState extends State<PlannerScreen> {
           ],
         ),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final totalHeight = constraints.hasBoundedHeight
-              ? constraints.maxHeight
-              : MediaQuery.of(context).size.height;
-          final mapHeight = totalHeight * 0.60;
+      body: Stack(
+        children: [
+          // ==========================================
+          // 1. Fullscreen Interactive OpenStreetMap Viewport
+          // ==========================================
+          Positioned.fill(
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: initialCenter,
+                initialZoom: 13.5,
+                minZoom: 4.0,
+                maxZoom: 18.0,
+                onTap: _onMapTap,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all,
+                ),
+              ),
+              children: [
+                // OpenStreetMap Activity Tile Layer (CyclOSM or OpenTopoMap)
+                OsmTileProviders.layerForActivity(telemetry.activityType),
 
-          return Column(
-            children: [
-              // ==========================================
-              // TILE 1: 60% Interactive OpenStreetMap Viewport
-              // ==========================================
-              SizedBox(
-                height: mapHeight,
-                width: double.infinity,
-                child: Stack(
-                  children: [
-                    // Interactive OSM Map
-                    FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(
-                        initialCenter: initialCenter,
-                        initialZoom: 13.5,
-                        minZoom: 4.0,
-                        maxZoom: 18.0,
-                        onTap: _onMapTap,
-                        interactionOptions: const InteractionOptions(
-                          flags: InteractiveFlag.all,
-                        ),
+                // Route Polyline (Double Layer: Outer Glow + Solid Core)
+                if (coordinates.isNotEmpty)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: coordinates,
+                        strokeWidth: 8.0,
+                        color: primaryTheme.withOpacity(0.35),
                       ),
-                      children: [
-                        // OpenStreetMap Activity Tile Layer (CyclOSM or OpenTopoMap)
-                        OsmTileProviders.layerForActivity(telemetry.activityType),
+                      Polyline(
+                        points: coordinates,
+                        strokeWidth: 4.0,
+                        color: primaryTheme,
+                      ),
+                    ],
+                  ),
 
-                        // Route Polyline (Double Layer: Outer Glow + Solid Core)
-                        if (coordinates.isNotEmpty)
-                          PolylineLayer(
-                            polylines: [
-                              Polyline(
-                                points: coordinates,
-                                strokeWidth: 8.0,
-                                color: primaryTheme.withOpacity(0.35),
-                              ),
-                              Polyline(
-                                points: coordinates,
-                                strokeWidth: 4.0,
-                                color: primaryTheme,
-                              ),
-                            ],
-                          ),
+                // Waypoint / Stop Markers and Live User Beacon
+                MarkerLayer(
+                  markers: _buildMapMarkers(primaryTheme, coordinates, userGps),
+                ),
+              ],
+            ),
+          ),
 
-                        // Waypoint / Stop Markers and Live User Beacon
-                        MarkerLayer(
-                          markers: _buildMapMarkers(primaryTheme, coordinates, userGps),
+          // ==========================================
+          // 2. Top Controls Overlay: Activity Toggle + Load GPX
+          // ==========================================
+          Positioned(
+            top: 10,
+            left: 12,
+            right: 12,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _ActivityToggle(
+                  currentActivity: telemetry.activityType,
+                  onChanged: (type) {
+                    telemetry.setActivityType(type);
+                    if (_plannedPoints.length >= 2) {
+                      _recalculateRoute(type);
+                    }
+                  },
+                ),
+                _LoadRouteButton(
+                  onTap: () {
+                    RouteLoaderModal.show(context, telemetry.activityType);
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // ==========================================
+          // 3. Guidance HUD Status Banner (Below Top Controls)
+          // ==========================================
+          Positioned(
+            top: 56,
+            left: 12,
+            right: 12,
+            child: _buildGuidanceBanner(primaryTheme, userGps),
+          ),
+
+          // ==========================================
+          // 4. Floating Map Controls (Bottom Right, above bottom dock)
+          // ==========================================
+          Positioned(
+            bottom: 120,
+            right: 12,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _MapQuickActionBtn(
+                  icon: Icons.my_location,
+                  tooltip: 'Center on my location',
+                  iconColor: AppColors.primaryContainer,
+                  onTap: () {
+                    final loc = telemetry.userLocation;
+                    if (loc != null) {
+                      _mapController.move(loc, 15.0);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Acquiring GPS location...'),
+                          duration: Duration(seconds: 2),
+                          backgroundColor: AppColors.surfaceContainerHigh,
                         ),
-                      ],
-                    ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 6),
+                if (_plannedPoints.isNotEmpty) ...[
+                  _MapQuickActionBtn(
+                    icon: Icons.undo,
+                    tooltip: 'Undo last point',
+                    onTap: _undoLastPoint,
+                  ),
+                  const SizedBox(height: 6),
+                  _MapQuickActionBtn(
+                    icon: Icons.delete_outline,
+                    tooltip: 'Clear plan',
+                    iconColor: AppColors.error,
+                    onTap: _clearPlan,
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                _MapQuickActionBtn(
+                  icon: Icons.center_focus_strong,
+                  tooltip: 'Fit route bounds',
+                  onTap: () => _fitRouteBounds(coordinates),
+                ),
+                const SizedBox(height: 6),
+                _MapQuickActionBtn(
+                  icon: Icons.add,
+                  tooltip: 'Zoom in',
+                  onTap: () {
+                    _mapController.move(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom + 1,
+                    );
+                  },
+                ),
+                const SizedBox(height: 6),
+                _MapQuickActionBtn(
+                  icon: Icons.remove,
+                  tooltip: 'Zoom out',
+                  onTap: () {
+                    _mapController.move(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom - 1,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
 
-                    // Top Controls Overlay: Activity Toggle + Load GPX
-                    Positioned(
-                      top: 10,
-                      left: 12,
-                      right: 12,
+          // ==========================================
+          // 5. Layer Label Badge (Bottom Left, above bottom dock)
+          // ==========================================
+          Positioned(
+            bottom: 120,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest.withOpacity(0.90),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: primaryTheme.withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isCycling ? Icons.directions_bike : Icons.terrain,
+                    size: 13,
+                    color: primaryTheme,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    isCycling ? 'CYCLOSM • CYCLE TRACKS' : 'OPENTOPOMAP • TOPO CONTOURS',
+                    style: AppTypography.microCaps.copyWith(
+                      color: AppColors.primary,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ==========================================
+          // 6. Floating Bottom Action Dock: [START IN COCKPIT] & [SAVE ROUTE]
+          // ==========================================
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 12,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest.withOpacity(0.94),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.outlineVariant.withOpacity(0.4)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.45),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Compact metrics strip and Details trigger if route exists
+                  if (displayRoute.coordinates.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _ActivityToggle(
-                            currentActivity: telemetry.activityType,
-                            onChanged: (type) {
-                              telemetry.setActivityType(type);
-                              if (_plannedPoints.length >= 2) {
-                                _recalculateRoute(type);
-                              }
-                            },
+                          Icon(Icons.route, size: 14, color: primaryTheme),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${displayRoute.totalDistanceKm.toStringAsFixed(1)} km',
+                            style: AppTypography.bodySm.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.onSurface,
+                            ),
                           ),
-                          _LoadRouteButton(
-                            onTap: () {
-                              RouteLoaderModal.show(context, telemetry.activityType);
-                            },
+                          const SizedBox(width: 8),
+                          const Text('•', style: TextStyle(color: AppColors.onSurfaceVariant)),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.trending_up, size: 14, color: AppColors.secondaryFixed),
+                          const SizedBox(width: 4),
+                          Text(
+                            '+${displayRoute.totalAscentM.toInt()}m',
+                            style: AppTypography.bodySm.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.onSurface,
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
-
-                    // Guidance HUD Status Banner (Directly below top controls)
-                    Positioned(
-                      top: 56,
-                      left: 12,
-                      right: 12,
-                      child: _buildGuidanceBanner(primaryTheme, userGps),
-                    ),
-
-                    // Floating Map Controls (Bottom Right)
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Center on My Location Button
-                          _MapQuickActionBtn(
-                            icon: Icons.my_location,
-                            tooltip: 'Center on my location',
-                            iconColor: AppColors.primaryContainer,
-                            onTap: () {
-                              final loc = telemetry.userLocation;
-                              if (loc != null) {
-                                _mapController.move(loc, 15.0);
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Acquiring GPS location...'),
-                                    duration: Duration(seconds: 2),
-                                    backgroundColor: AppColors.surfaceContainerHigh,
+                          const Spacer(),
+                          InkWell(
+                            onTap: () => _showRouteDetailsModal(context, displayRoute, isCycling, primaryTheme),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'DETAILS',
+                                    style: AppTypography.microCaps.copyWith(
+                                      color: primaryTheme,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.8,
+                                    ),
                                   ),
-                                );
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 6),
-                          if (_plannedPoints.isNotEmpty) ...[
-                            _MapQuickActionBtn(
-                              icon: Icons.undo,
-                              tooltip: 'Undo last point',
-                              onTap: _undoLastPoint,
-                            ),
-                            const SizedBox(height: 6),
-                            _MapQuickActionBtn(
-                              icon: Icons.delete_outline,
-                              tooltip: 'Clear plan',
-                              iconColor: AppColors.error,
-                              onTap: _clearPlan,
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                          _MapQuickActionBtn(
-                            icon: Icons.center_focus_strong,
-                            tooltip: 'Fit route bounds',
-                            onTap: () => _fitRouteBounds(coordinates),
-                          ),
-                          const SizedBox(height: 6),
-                          _MapQuickActionBtn(
-                            icon: Icons.add,
-                            tooltip: 'Zoom in',
-                            onTap: () {
-                              _mapController.move(
-                                _mapController.camera.center,
-                                _mapController.camera.zoom + 1,
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 6),
-                          _MapQuickActionBtn(
-                            icon: Icons.remove,
-                            tooltip: 'Zoom out',
-                            onTap: () {
-                              _mapController.move(
-                                _mapController.camera.center,
-                                _mapController.camera.zoom - 1,
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Layer Label Badge (Bottom Left)
-                    Positioned(
-                      bottom: 12,
-                      left: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerLowest.withOpacity(0.90),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: primaryTheme.withOpacity(0.4)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isCycling ? Icons.directions_bike : Icons.terrain,
-                              size: 13,
-                              color: primaryTheme,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              isCycling ? 'CYCLOSM • CYCLE TRACKS' : 'OPENTOPOMAP • TOPO CONTOURS',
-                              style: AppTypography.microCaps.copyWith(
-                                color: AppColors.primary,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
+                                  const SizedBox(width: 2),
+                                  Icon(Icons.keyboard_arrow_up, size: 16, color: primaryTheme),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ),
 
-              // ==========================================
-              // TILE 2: 40% Scrollable Controls & Route Info
-              // ==========================================
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  // Pinned Primary Buttons: [START IN COCKPIT] & [SAVE ROUTE]
+                  Row(
                     children: [
-                      // PRIMARY ACTIONS: [START IN COCKPIT] & [SAVE ROUTE]
-                      Row(
-                        children: [
-                          // Start Navigation in Cockpit Button
-                          Expanded(
-                            flex: 3,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryTheme,
-                                foregroundColor: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: () => _startNavigationInCockpit(displayRoute),
-                              icon: const Icon(Icons.rocket_launch, size: 18),
-                              label: Text(
-                                'START IN COCKPIT',
-                                style: AppTypography.labelCaps.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 12,
-                                  letterSpacing: 0.8,
-                                  color: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
-                                ),
-                              ),
+                      // Start Navigation in Cockpit Button
+                      Expanded(
+                        flex: 3,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryTheme,
+                            foregroundColor: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          // Save Route Button
-                          Expanded(
-                            flex: 2,
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: AppColors.surfaceContainerHigh,
-                                foregroundColor: AppColors.secondaryFixed,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                side: BorderSide(color: AppColors.outlineVariant.withOpacity(0.5)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: () => _saveRoute(displayRoute),
-                              icon: const Icon(Icons.save_outlined, size: 18),
-                              label: Text(
-                                'SAVE ROUTE',
-                                style: AppTypography.labelCaps.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 11,
-                                  color: AppColors.secondaryFixed,
-                                ),
-                              ),
+                          onPressed: () => _startNavigationInCockpit(displayRoute),
+                          icon: const Icon(Icons.rocket_launch, size: 18),
+                          label: Text(
+                            'START IN COCKPIT',
+                            style: AppTypography.labelCaps.copyWith(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                              letterSpacing: 0.8,
+                              color: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
                             ),
                           ),
-                        ],
+                        ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      // Interactive Stops & Waypoints Manager
-                      _buildStopsManagerCard(displayRoute, isCycling, primaryTheme),
-
-                      const SizedBox(height: 16),
-
-                      // Main Route Overview Card
-                      _MainRouteOverviewCard(route: displayRoute, isCycling: isCycling),
-
-                      const SizedBox(height: 18),
-
-                      // Terrain & Surface Breakdown Card
-                      _SurfaceBreakdownCard(route: displayRoute, isCycling: isCycling),
-
-                      const SizedBox(height: 18),
-
-                      // Tactical Advisory Card
-                      _TacticalAdvisoryCard(isCycling: isCycling),
-
-                      const SizedBox(height: 18),
-
-                      // Planned Waypoints List (from route)
-                      _WaypointsSection(waypoints: displayRoute.waypoints),
-
-                      const SizedBox(height: 24),
+                      const SizedBox(width: 10),
+                      // Save Route Button
+                      Expanded(
+                        flex: 2,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppColors.surfaceContainerHigh,
+                            foregroundColor: AppColors.secondaryFixed,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            side: BorderSide(color: AppColors.outlineVariant.withOpacity(0.5)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () => _saveRoute(displayRoute),
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: Text(
+                            'SAVE ROUTE',
+                            style: AppTypography.labelCaps.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
+                              color: AppColors.secondaryFixed,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                ],
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  /// Opens an expandable modal bottom sheet with route details, waypoints, stops, and surface breakdown
+  void _showRouteDetailsModal(
+    BuildContext context,
+    RouteModel route,
+    bool isCycling,
+    Color primaryTheme,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(top: BorderSide(color: AppColors.outlineVariant, width: 1)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: ListView(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'ROUTE DETAILS & WAYPOINTS',
+                        style: AppTypography.headlineSm.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: primaryTheme,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20, color: AppColors.onSurfaceVariant),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildStopsManagerCard(route, isCycling, primaryTheme),
+                  const SizedBox(height: 14),
+                  _MainRouteOverviewCard(route: route, isCycling: isCycling),
+                  const SizedBox(height: 14),
+                  _SurfaceBreakdownCard(route: route, isCycling: isCycling),
+                  const SizedBox(height: 14),
+                  _TacticalAdvisoryCard(isCycling: isCycling),
+                  const SizedBox(height: 14),
+                  _WaypointsSection(waypoints: route.waypoints),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

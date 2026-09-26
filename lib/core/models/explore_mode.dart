@@ -1,0 +1,4 @@
+enum ExploreMode {
+  online,
+  offline,
+}

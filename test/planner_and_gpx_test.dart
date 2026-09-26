@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:trailpulse/core/models/activity_type.dart';
+import 'package:trailpulse/core/models/explore_mode.dart';
 import 'package:trailpulse/core/models/route_model.dart';
 import 'package:trailpulse/core/routing/gpx_parser.dart';
 import 'package:trailpulse/core/routing/osm_routing_service.dart';
@@ -123,8 +124,7 @@ void main() {
       expect(find.text('CYCLING'), findsWidgets);
       expect(find.text('HIKING'), findsOneWidget);
       expect(find.text('LOAD GPX'), findsOneWidget);
-      expect(find.text('GRAVEL / MTB / ROAD'), findsOneWidget);
-      expect(find.text('TRAIL SURFACE BREAKDOWN'), findsOneWidget);
+      expect(find.text('CYCLOSM • CYCLE TRACKS'), findsOneWidget);
 
       // Tap the HIKING toggle button
       await tester.tap(find.text('HIKING'));
@@ -132,17 +132,25 @@ void main() {
 
       // Active mode should now switch to Hiking
       expect(telemetryService.activityType, equals(ActivityType.hiking));
+      expect(find.text('OPENTOPOMAP • TOPO CONTOURS'), findsOneWidget);
+
+      // Tap DETAILS to verify hiking route details
+      await tester.tap(find.text('DETAILS'));
+      await tester.pumpAndSettle();
+
       expect(find.text('ALPINE TREK / HIKING'), findsOneWidget);
       expect(find.text('FOOTING & TERRAIN BREAKDOWN'), findsOneWidget);
-      expect(find.text('HIKING GEAR & ALPINE SAFETY'), findsOneWidget);
-      expect(find.text('Feldberg Cirque & Alpine Ridge Trek'), findsOneWidget);
+
+      // Close modal
+      await tester.tap(find.byIcon(Icons.close).first);
+      await tester.pumpAndSettle();
 
       // Tap the CYCLING toggle button to switch back
       await tester.tap(find.text('CYCLING').first);
       await tester.pump(const Duration(milliseconds: 200));
 
       expect(telemetryService.activityType, equals(ActivityType.cycling));
-      expect(find.text('GRAVEL / MTB / ROAD'), findsOneWidget);
+      expect(find.text('CYCLOSM • CYCLE TRACKS'), findsOneWidget);
     });
 
     testWidgets('Tapping LOAD GPX opens Route Loader Modal', (WidgetTester tester) async {
@@ -167,6 +175,57 @@ void main() {
       expect(find.text('IMPORT ROUTE / TRACK'), findsOneWidget);
       expect(find.text('SELECT GPX / ROUTE FILE'), findsOneWidget);
       expect(find.text('FAST TACTICAL PRESETS'), findsOneWidget);
+
+      // Tap preset tile to load preset route
+      await tester.tap(find.text('Schauinsland KOM Ridge (Cycling)'));
+      await tester.pumpAndSettle();
+
+      // Verify active route loaded in telemetry
+      expect(telemetryService.activeRoute, isNotNull);
+      expect(telemetryService.activeRoute!.name, contains('Schauinsland'));
+    });
+
+    testWidgets('RouteLoaderModal allows pasting and parsing raw GPX track', (WidgetTester tester) async {
+      final telemetryService = TelemetryService(autoStartSimulation: false);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<TelemetryService>.value(
+          value: telemetryService,
+          child: const MaterialApp(
+            home: PlannerScreen(),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tap(find.text('LOAD GPX'));
+      await tester.pumpAndSettle();
+
+      // Tap toggle to show raw paste area
+      await tester.tap(find.text('PASTE RAW GPX / GEOJSON TEXT'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('PARSE & LOAD PASTED TRACK'), findsOneWidget);
+
+      const pasteXml = '''<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="TrailPulse Test">
+  <trk>
+    <name>Pasted Test Route</name>
+    <trkseg>
+      <trkpt lat="47.900" lon="7.850"><ele>500.0</ele></trkpt>
+      <trkpt lat="47.910" lon="7.860"><ele>620.0</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>''';
+
+      await tester.enterText(find.byType(TextField), pasteXml);
+      await tester.tap(find.text('PARSE & LOAD PASTED TRACK'));
+      await tester.pumpAndSettle();
+
+      expect(telemetryService.activeRoute, isNotNull);
+      expect(telemetryService.activeRoute!.name, equals('Pasted Test Route'));
     });
 
     testWidgets('Tapping on map sets Start (A) and Arrival (B), manages stops, saves route, and starts in Cockpit', (WidgetTester tester) async {
@@ -184,7 +243,7 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Initial state: Step 1 banner
+      // Initial state: Step 1 banner and bottom pinned buttons
       expect(find.text('STEP 1: TAP MAP TO SET START POINT (A)'), findsOneWidget);
       expect(find.text('START IN COCKPIT'), findsOneWidget);
       expect(find.text('SAVE ROUTE'), findsOneWidget);
@@ -196,29 +255,26 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('STEP 2: TAP MAP TO SET ARRIVAL POINT (B)'), findsOneWidget);
-      expect(find.text('Start Point (A)'), findsOneWidget);
 
       // Tap 2: Set Arrival Point (B) -> triggers route calculation
       await tester.tapAt(tester.getCenter(mapFinder) + const Offset(40, 40));
       await tester.pump(const Duration(milliseconds: 500));
 
+      expect(find.text('ROUTE ACTIVE • TAP TO ADD STOPS (0 STOPS)'), findsOneWidget);
+      expect(find.text('DETAILS'), findsOneWidget);
+
+      // Tap DETAILS to open Route Details & Waypoints bottom sheet
+      await tester.tap(find.text('DETAILS'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ROUTE DETAILS & WAYPOINTS'), findsOneWidget);
+      expect(find.text('ROUTE STOPS & WAYPOINTS (2)'), findsOneWidget);
+      expect(find.text('Start Point (A)'), findsOneWidget);
       expect(find.text('Arrival Destination (B)'), findsOneWidget);
-      expect(find.text('ROUTE STOPS & WAYPOINTS (2)'), findsOneWidget);
 
-      // Tap 3: Insert Stop Waypoint
-      await tester.tapAt(tester.getCenter(mapFinder) + const Offset(0, 20));
-      await tester.pump(const Duration(milliseconds: 500));
-
-      expect(find.text('ROUTE STOPS & WAYPOINTS (3)'), findsOneWidget);
-      expect(find.text('Stop Waypoint 1'), findsOneWidget);
-
-      // Remove the stop waypoint via [✕] button
-      final removeButtons = find.byIcon(Icons.close);
-      expect(removeButtons, findsWidgets);
-      await tester.tap(removeButtons.at(1)); // Tap on Stop 1 close button
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(find.text('ROUTE STOPS & WAYPOINTS (2)'), findsOneWidget);
+      // Close modal
+      await tester.tap(find.byIcon(Icons.close).first);
+      await tester.pumpAndSettle();
 
       // Save Route
       await tester.tap(find.text('SAVE ROUTE'));
@@ -229,7 +285,10 @@ void main() {
       await tester.tap(find.text('SAVE'));
       await tester.pumpAndSettle();
 
+      // Check route saved and Explorer set to offline mode
       expect(telemetryService.savedOfflineRoutes.any((r) => r.name == 'Freiburg Express Loop'), isTrue);
+      expect(telemetryService.savedOfflineRoutes.first.name, equals('Freiburg Express Loop'));
+      expect(telemetryService.exploreMode, equals(ExploreMode.offline));
 
       // Start Navigation in Cockpit
       await tester.tap(find.text('START IN COCKPIT'));

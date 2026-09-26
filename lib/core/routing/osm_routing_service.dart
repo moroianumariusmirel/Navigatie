@@ -7,6 +7,7 @@ import '../models/route_model.dart';
 import '../models/elevation_point.dart';
 import '../models/maneuver_instruction.dart';
 import '../models/waypoint_model.dart';
+import '../navigation/turn_navigation_engine.dart';
 
 class OsmRoutingService {
   static const Distance _distCalc = Distance();
@@ -70,6 +71,8 @@ class OsmRoutingService {
 
     // Extract maneuvers from steps
     final maneuvers = <ManeuverInstruction>[];
+    double accumulatedDistM = 0.0;
+    int stepIdx = 0;
     if (routeData['legs'] != null) {
       for (final leg in routeData['legs'] as List) {
         if (leg['steps'] != null) {
@@ -80,8 +83,21 @@ class OsmRoutingService {
             final String type = maneuverData != null ? (maneuverData['type']?.toString() ?? 'straight') : 'straight';
             final String modifier = maneuverData != null ? (maneuverData['modifier']?.toString() ?? '') : '';
 
+            LatLng? stepCoord;
+            if (maneuverData != null && maneuverData['location'] is List) {
+              final loc = maneuverData['location'] as List;
+              if (loc.length >= 2) {
+                stepCoord = LatLng((loc[1] as num).toDouble(), (loc[0] as num).toDouble());
+              }
+            }
+
+            accumulatedDistM += dist;
+
             maneuvers.add(ManeuverInstruction(
               distanceToManeuverMeters: dist.toInt(),
+              distanceAlongRouteM: accumulatedDistM,
+              stepIndex: stepIdx++,
+              coordinate: stepCoord,
               maneuverType: _mapOsrmManeuver(type, modifier),
               instructionTitle: _buildInstructionTitle(type, modifier, name),
               trailName: name.isNotEmpty ? name : (activityType == ActivityType.cycling ? 'Cycle Track' : 'Alpine Trail'),
@@ -164,18 +180,13 @@ class OsmRoutingService {
               'Rocky Steps': 0.10,
             },
       elevationProfile: elevationProfile,
-      maneuvers: maneuvers.isNotEmpty
+      maneuvers: maneuvers.length > 1
           ? maneuvers
-          : [
-              ManeuverInstruction(
-                distanceToManeuverMeters: 100,
-                maneuverType: ManeuverType.straight,
-                instructionTitle: 'Follow Calculated Route',
-                trailName: routeName,
-                surfaceType: 'Trail',
-                apexElevationM: maxEle,
-              )
-            ],
+          : TurnNavigationEngine.extractManeuversFromCoordinates(
+              coordinates: coordinates,
+              activityType: activityType,
+              routeName: routeName,
+            ),
       waypoints: waypoints,
       coordinates: coordinates,
     );
@@ -231,16 +242,11 @@ class OsmRoutingService {
           ? const {'Gravel': 0.60, 'Asphalt': 0.30, 'Path': 0.10}
           : const {'Trail': 0.70, 'Gravel': 0.20, 'Rock': 0.10},
       elevationProfile: elevationProfile,
-      maneuvers: const [
-        ManeuverInstruction(
-          distanceToManeuverMeters: 120,
-          maneuverType: ManeuverType.straight,
-          instructionTitle: 'Follow Created Route',
-          trailName: 'Created Path',
-          surfaceType: 'Trail',
-          apexElevationM: 1450.0,
-        )
-      ],
+      maneuvers: TurnNavigationEngine.extractManeuversFromCoordinates(
+        coordinates: coordinates,
+        activityType: activityType,
+        routeName: customName ?? 'Created Path',
+      ),
       waypoints: waypoints,
       coordinates: coordinates,
     );

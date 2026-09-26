@@ -9,11 +9,13 @@ import '../../../core/models/elevation_point.dart';
 class ElevationSlicerWidget extends StatelessWidget {
   final TelemetryData telemetry;
   final RouteModel? route;
+  final EdgeInsetsGeometry? margin;
 
   const ElevationSlicerWidget({
     super.key,
     required this.telemetry,
     this.route,
+    this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
   });
 
   @override
@@ -21,7 +23,7 @@ class ElevationSlicerWidget extends StatelessWidget {
     final profile = route?.elevationProfile ?? RouteModel.sampleSchauinsland().elevationProfile;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: margin,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerHigh,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
@@ -40,9 +41,15 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
     });
 
     try {
+      // On mobile devices (Android/iOS), using FileType.custom causes Android's
+      // Storage Access Framework (SAF) to filter strictly by MIME types.
+      // Since Android has no registered MIME type for GPX/KML/GeoJSON, it grays out
+      // and disables .gpx files in the file selector.
+      // Using FileType.any on mobile allows selecting any route file, and we
+      // validate the extension directly in Dart.
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['gpx', 'kml', 'xml', 'json', 'geojson'],
+        type: kIsWeb ? FileType.custom : FileType.any,
+        allowedExtensions: kIsWeb ? ['gpx', 'kml', 'xml', 'json', 'geojson'] : null,
         withData: true,
       );
 
@@ -50,14 +57,43 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        final bytes = file.bytes;
         final name = file.name;
+        final ext = (file.extension ?? (name.contains('.') ? name.split('.').last : '')).toLowerCase();
+        const validExtensions = ['gpx', 'kml', 'xml', 'json', 'geojson'];
 
-        if (bytes != null) {
-          final content = utf8.decode(bytes);
-          _processContent(context, content, name);
+        if (ext.isNotEmpty && !validExtensions.contains(ext)) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Unsupported file format (.$ext). Please select a .gpx, .kml, or .geojson route.';
+          });
           return;
         }
+
+        List<int>? bytes = file.bytes;
+        bytes ??= await file.xFile.readAsBytes();
+
+        if (bytes.isEmpty) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Selected file is empty.';
+          });
+          return;
+        }
+
+        String content;
+        try {
+          content = utf8.decode(bytes);
+        } catch (_) {
+          content = latin1.decode(bytes);
+        }
+
+        if (content.startsWith('\uFEFF')) {
+          content = content.substring(1);
+        }
+
+        if (!mounted) return;
+        _processContent(context, content, name);
+        return;
       }
       setState(() {
         _isLoading = false;
@@ -75,8 +111,9 @@ class _RouteLoaderModalState extends State<RouteLoaderModal> {
   void _processContent(BuildContext context, String content, String fileName) {
     try {
       final telemetry = Provider.of<TelemetryService>(context, listen: false);
+      final lowerName = fileName.toLowerCase();
       RouteModel route;
-      if (content.trim().startsWith('{') || fileName.endsWith('.json') || fileName.endsWith('.geojson')) {
+      if (content.trim().startsWith('{') || lowerName.endsWith('.json') || lowerName.endsWith('.geojson')) {
         route = GpxParser.parseGeoJson(content, defaultActivity: widget.currentActivity, fallbackName: fileName);
       } else {
         route = GpxParser.parseGpx(content, defaultActivity: widget.currentActivity, fallbackName: fileName);
