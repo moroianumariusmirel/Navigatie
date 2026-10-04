@@ -9,14 +9,31 @@ import 'audio_navigation_service.dart';
 /// live distance countdown, and multi-stage audio alerts inspired by Bikemap and Komoot.
 class TurnNavigationEngine {
   final AudioNavigationService _audioService;
+  bool _enabled;
 
   List<ManeuverInstruction> _maneuvers = [];
   int _currentIndex = 0;
   bool _wasOffRoute = false;
   bool _hasArrived = false;
 
-  TurnNavigationEngine({AudioNavigationService? audioService})
-      : _audioService = audioService ?? AudioNavigationService();
+  TurnNavigationEngine({AudioNavigationService? audioService, bool enabled = false})
+      : _audioService = audioService ?? AudioNavigationService(),
+        _enabled = enabled;
+
+  bool get isEnabled => _enabled;
+
+  void setEnabled(bool enabled) {
+    _enabled = enabled;
+    if (enabled) {
+      _wasOffRoute = false;
+    } else {
+      _audioService.stopAll();
+    }
+  }
+
+  void stopAudio() {
+    _audioService.stopAll();
+  }
 
   AudioNavigationService get audioService => _audioService;
   List<ManeuverInstruction> get maneuvers => List.unmodifiable(_maneuvers);
@@ -58,7 +75,7 @@ class TurnNavigationEngine {
     required bool isOffRoute,
     required ActivityType activityType,
   }) {
-    if (_maneuvers.isEmpty) return null;
+    if (!_enabled || _maneuvers.isEmpty) return null;
 
     // 1. Check Off-Route Alert (fires on rising edge when entering off-route state)
     if (isOffRoute && !_wasOffRoute) {

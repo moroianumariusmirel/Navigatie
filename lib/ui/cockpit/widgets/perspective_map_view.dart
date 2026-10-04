@@ -105,8 +105,11 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                   ),
                 ),
                 children: [
-                  // Dedicated OpenStreetMap tile provider for Cycling vs Hiking
-                  OsmTileProviders.layerForActivity(widget.activityType),
+                  // Dedicated OpenStreetMap tile provider (Seamlessly switches to Vector PMTiles if region is downloaded)
+                  OsmTileProviders.layerForActivity(
+                    widget.activityType,
+                    center: userPos,
+                  ),
 
                   // Route Polyline with dual-pass neon glow
                   if (widget.route != null && widget.route!.coordinates.isNotEmpty)
@@ -317,10 +320,14 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                     const SizedBox(width: 6),
                     Text(
                       _showLiveOsm
-                          ? (isCycling ? '🗺️ CYCLOSM LIVE' : '🥾 OPENTOPOMAP LIVE')
+                          ? (OsmTileProviders.getActiveOfflineRegion(userPos) != null
+                              ? '💾 OFFLINE VECTOR (LOCAL)'
+                              : (isCycling ? '🗺️ CYCLOSM LIVE' : '🥾 OPENTOPOMAP LIVE'))
                           : '📐 3D PERSPECTIVE',
                       style: AppTypography.microCaps.copyWith(
-                        color: AppColors.primary,
+                        color: OsmTileProviders.getActiveOfflineRegion(userPos) != null
+                            ? primaryTheme
+                            : AppColors.primary,
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                       ),

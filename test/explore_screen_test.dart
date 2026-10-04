@@ -25,8 +25,9 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 100));
 
-    // Verify AppBar title
-    expect(find.text('ROUTES & TRAILS'), findsOneWidget);
+    // Verify AppBar title and segmented tab
+    expect(find.text('ROUTES & TRAILS'), findsNWidgets(2)); // Title + Tab
+    expect(find.text('OFFLINE MAPS'), findsOneWidget);
 
     // Verify top controls matching PlannerScreen
     expect(find.text('CYCLING'), findsWidgets);
@@ -39,6 +40,18 @@ void main() {
     // Verify offline section headers and saved routes
     expect(find.text('100% OFFLINE READY'), findsOneWidget);
     expect(find.textContaining('SAVED & IMPORTED ROUTES'), findsOneWidget);
+
+    // Switch to OFFLINE MAPS tab
+    await tester.tap(find.text('OFFLINE MAPS'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('OFFLINE VECTOR MAPS'), findsWidgets);
+    expect(find.text('IMPORT .PMTILES'), findsOneWidget);
+    expect(find.text('DEVICE STORAGE USED'), findsOneWidget);
+
+    // Switch back to ROUTES & TRAILS tab
+    await tester.tap(find.text('ROUTES & TRAILS').first);
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Toggle to HIKING mode
     await tester.tap(find.text('HIKING'));

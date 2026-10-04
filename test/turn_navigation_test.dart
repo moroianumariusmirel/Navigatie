@@ -103,7 +103,7 @@ void main() {
     });
 
     test('TurnNavigationEngine tracks live countdown and fires approach & immediate alerts', () {
-      final engine = TurnNavigationEngine();
+      final engine = TurnNavigationEngine(enabled: true);
 
       const route = RouteModel(
         id: 'test_engine_route',
@@ -246,7 +246,150 @@ void main() {
       telemetry.stopNavigation();
       expect(telemetry.navigationState, equals(NavigationState.stopped));
       expect(telemetry.isNavigating, isFalse);
+      expect(telemetry.turnEngine.isEnabled, isFalse);
       expect(telemetry.currentData.distanceTraveledKm, equals(0.0));
     });
+
+    test('TurnNavigationEngine does NOT fire any alerts when disabled (stopped)', () {
+      final fakeAudio = _FakeAudioNavigationService();
+      final engine = TurnNavigationEngine(audioService: fakeAudio, enabled: false);
+
+      const route = RouteModel(
+        id: 'test_engine_route_disabled',
+        name: 'Trailhead Alpine',
+        activityType: ActivityType.cycling,
+        totalDistanceKm: 1.0,
+        totalAscentM: 50.0,
+        totalDescentM: 50.0,
+        maxElevationM: 1200.0,
+        minElevationM: 1100.0,
+        estimatedDuration: '10m',
+        difficultyRating: 'S1',
+        surfaceBreakdown: {'Gravel': 1.0},
+        elevationProfile: [],
+        coordinates: [
+          LatLng(47.9000, 7.8000),
+          LatLng(47.9050, 7.8000),
+          LatLng(47.9050, 7.8050),
+        ],
+        maneuvers: [
+          ManeuverInstruction(
+            stepIndex: 0,
+            distanceAlongRouteM: 200.0,
+            distanceToManeuverMeters: 200,
+            maneuverType: ManeuverType.turnRight,
+            instructionTitle: 'Turn Right',
+            trailName: 'Schauinsland Path',
+            surfaceType: 'Gravel',
+          ),
+          ManeuverInstruction(
+            stepIndex: 1,
+            distanceAlongRouteM: 600.0,
+            distanceToManeuverMeters: 400,
+            maneuverType: ManeuverType.destination,
+            instructionTitle: 'Arrive at Summit',
+            trailName: 'Summit Peak',
+            surfaceType: 'Rock',
+          ),
+        ],
+      );
+
+      engine.initRoute(route);
+      expect(engine.isEnabled, isFalse);
+
+      // Attempt to update progress while off-route and inside turn threshold
+      final result = engine.updateProgress(
+        distanceTraveledM: 185.0,
+        isOffRoute: true,
+        activityType: ActivityType.cycling,
+      );
+
+      // Engine returns null and no alerts are fired
+      expect(result, isNull);
+      expect(fakeAudio.offRouteCalls, equals(0));
+      expect(fakeAudio.approachCalls, equals(0));
+      expect(fakeAudio.immediateCalls, equals(0));
+      expect(fakeAudio.arrivalCalls, equals(0));
+
+      // Once enabled (e.g. user taps Start in Cockpit), alerts can fire
+      engine.setEnabled(true);
+      expect(engine.isEnabled, isTrue);
+
+      final enabledResult = engine.updateProgress(
+        distanceTraveledM: 185.0,
+        isOffRoute: true,
+        activityType: ActivityType.cycling,
+      );
+
+      expect(enabledResult, isNotNull);
+      expect(fakeAudio.offRouteCalls, equals(1));
+      expect(fakeAudio.immediateCalls, equals(1));
+    });
+
+    test('TelemetryService keeps TurnNavigationEngine disabled upon loading route until startNavigation', () {
+      final telemetry = TelemetryService(autoStartSimulation: false);
+      expect(telemetry.navigationState, equals(NavigationState.stopped));
+      expect(telemetry.turnEngine.isEnabled, isFalse);
+
+      // Loading a new route must keep turn engine disabled
+      telemetry.updateActiveRoute(RouteModel.sampleSchauinsland());
+      expect(telemetry.navigationState, equals(NavigationState.stopped));
+      expect(telemetry.turnEngine.isEnabled, isFalse);
+
+      // Starting navigation enables turn engine
+      telemetry.startNavigation();
+      expect(telemetry.navigationState, equals(NavigationState.active));
+      expect(telemetry.turnEngine.isEnabled, isTrue);
+
+      // Pausing disables turn engine
+      telemetry.pauseNavigation();
+      expect(telemetry.navigationState, equals(NavigationState.paused));
+      expect(telemetry.turnEngine.isEnabled, isFalse);
+
+      // Resuming re-enables turn engine
+      telemetry.resumeNavigation();
+      expect(telemetry.navigationState, equals(NavigationState.active));
+      expect(telemetry.turnEngine.isEnabled, isTrue);
+
+      // Stopping disables turn engine
+      telemetry.stopNavigation();
+      expect(telemetry.navigationState, equals(NavigationState.stopped));
+      expect(telemetry.turnEngine.isEnabled, isFalse);
+    });
   });
+}
+
+class _FakeAudioNavigationService extends AudioNavigationService {
+  _FakeAudioNavigationService() : super.test();
+
+  int approachCalls = 0;
+  int immediateCalls = 0;
+  int offRouteCalls = 0;
+  int arrivalCalls = 0;
+  int stopAllCalls = 0;
+
+  @override
+  Future<void> playApproachAlert({required String spokenText}) async {
+    approachCalls++;
+  }
+
+  @override
+  Future<void> playImmediateAlert({required String spokenText}) async {
+    immediateCalls++;
+  }
+
+  @override
+  Future<void> playOffRouteAlert() async {
+    offRouteCalls++;
+  }
+
+  @override
+  Future<void> playArrivalAlert() async {
+    arrivalCalls++;
+  }
+
+  @override
+  Future<void> stopAll() async {
+    stopAllCalls++;
+  }
 }

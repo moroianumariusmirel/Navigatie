@@ -1,0 +1,87 @@
+{
+  "version": 8,
+  "name": "TrailPulse Hiking Alpine Vector",
+  "metadata": {
+    "trailpulse:profile": "hiking",
+    "trailpulse:palette": "alpine_amber_dark"
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#0d1117"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#0f2333"
+      }
+    },
+    {
+      "id": "rock_alpine_zone",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": ["in", "class", "rock", "scree"],
+      "paint": {
+        "fill-color": "#1b212c",
+        "fill-opacity": 0.8
+      }
+    },
+    {
+      "id": "contour_lines_10m",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "contour",
+      "paint": {
+        "line-color": "#5e4b2d",
+        "line-width": 1.0,
+        "line-opacity": 0.65
+      }
+    },
+    {
+      "id": "forestry_access_ways",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["==", "class", "track"],
+      "paint": {
+        "line-color": "#4a4537",
+        "line-width": 1.2
+      }
+    },
+    {
+      "id": "alpine_footpaths_trails",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "path", "footway"],
+      "paint": {
+        "line-color": "#ffab40",
+        "line-width": 2.6
+      }
+    },
+    {
+      "id": "sac_mountain_trail",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "subclass", "hiking", "alpine"],
+      "paint": {
+        "line-color": "#ff5252",
+        "line-width": 2.8,
+        "line-dasharray": [4, 2]
+      }
+    }
+  ]
+}

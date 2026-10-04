@@ -27,6 +27,10 @@ dependencies:
   geolocator: ^13.0.1
   audioplayers: ^6.4.0
   flutter_tts: ^4.2.5
+  vector_map_tiles: ^8.0.0
+  vector_map_tiles_pmtiles: ^1.5.0
+  flutter_map_pmtiles: ^1.0.4
+  pmtiles: ^1.3.0
 
 dev_dependencies:
   flutter_test:

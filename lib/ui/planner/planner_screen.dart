@@ -404,8 +404,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 ),
               ),
               children: [
-                // OpenStreetMap Activity Tile Layer (CyclOSM or OpenTopoMap)
-                OsmTileProviders.layerForActivity(telemetry.activityType),
+                // OpenStreetMap Activity Tile Layer (Seamlessly switches to Vector PMTiles if region is downloaded)
+                OsmTileProviders.layerForActivity(
+                  telemetry.activityType,
+                  center: initialCenter,
+                ),
 
                 // Route Polyline (Double Layer: Outer Glow + Solid Core)
                 if (coordinates.isNotEmpty)

@@ -14,6 +14,9 @@ class AudioNavigationService {
   static final AudioNavigationService _instance = AudioNavigationService._internal();
   factory AudioNavigationService() => _instance;
 
+  @visibleForTesting
+  AudioNavigationService.test();
+
   AudioNavigationService._internal() {
     _initTts();
   }
@@ -34,11 +37,29 @@ class AudioNavigationService {
   FlutterTts? _tts;
   bool _ttsInitialized = false;
 
+  Future<void> stopAll() async {
+    try {
+      await _audioPlayer?.stop();
+    } catch (e) {
+      debugPrint('[AudioNavigationService] audio player stop error: $e');
+    }
+    try {
+      if (_ttsInitialized && _tts != null) {
+        await _tts?.stop();
+      }
+    } catch (e) {
+      debugPrint('[AudioNavigationService] TTS stop error: $e');
+    }
+  }
+
   void dispose() {
     try {
       _audioPlayer?.dispose();
     } catch (_) {}
     _audioPlayer = null;
+    try {
+      _tts?.stop();
+    } catch (_) {}
   }
 
   NavigationAudioMode _mode = NavigationAudioMode.voiceAndChimes;

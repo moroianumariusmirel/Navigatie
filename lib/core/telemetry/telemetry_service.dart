@@ -249,6 +249,7 @@ class TelemetryService extends ChangeNotifier {
       );
     }
     if (autoStartSimulation) {
+      _turnEngine.setEnabled(true);
       _navigationState = NavigationState.active;
       startSimulation();
     } else {
@@ -496,6 +497,10 @@ class TelemetryService extends ChangeNotifier {
     _activityType = newRoute.activityType;
     _simStep = 0;
     _turnEngine.initRoute(newRoute);
+    if (!isNavigationActive) {
+      _turnEngine.setEnabled(false);
+      _turnEngine.stopAudio();
+    }
     _initTelemetryFromRoute(newRoute, initialDistanceKm: 0.0);
     _savePreferences();
     notifyListeners();
@@ -509,7 +514,10 @@ class TelemetryService extends ChangeNotifier {
           ? _savedOfflineRoutes.first
           : RouteModel.sampleSchauinsland();
       updateActiveRoute(fallback);
+    } else {
+      _turnEngine.initRoute(_activeRoute!);
     }
+    _turnEngine.setEnabled(true);
     _sessionStartTime = DateTime.now();
     _sessionActiveDuration = Duration.zero;
     _sessionClimbedM = 0.0;
@@ -527,6 +535,8 @@ class TelemetryService extends ChangeNotifier {
   void pauseNavigation() {
     _navigationState = NavigationState.paused;
     _isRecording = false;
+    _turnEngine.setEnabled(false);
+    _turnEngine.stopAudio();
     if (_sessionStartTime != null) {
       _sessionActiveDuration += DateTime.now().difference(_sessionStartTime!);
       _sessionStartTime = null;
@@ -544,6 +554,7 @@ class TelemetryService extends ChangeNotifier {
       return;
     }
     _navigationState = NavigationState.active;
+    _turnEngine.setEnabled(true);
     _isRecording = true;
     _sessionStartTime = DateTime.now();
     if (!_isGpsActive || _lastKnownGpsPosition == null) {
@@ -559,6 +570,8 @@ class TelemetryService extends ChangeNotifier {
   void stopNavigation() {
     _navigationState = NavigationState.stopped;
     _isRecording = false;
+    _turnEngine.setEnabled(false);
+    _turnEngine.stopAudio();
     stopSimulation();
 
     // Finalize session metrics
@@ -1069,11 +1082,13 @@ class TelemetryService extends ChangeNotifier {
       final vam = _calculateVam(realSpeedKmH, curGrade);
       final eta = _formatEta(projection.distanceRemainingKm, realSpeedKmH, _activityType);
       final isOff = projection.distanceOffRouteMeters > 40;
-      _turnEngine.updateProgress(
-        distanceTraveledM: projection.distanceTraveledKm * 1000.0,
-        isOffRoute: isOff,
-        activityType: _activityType,
-      );
+      if (isNavigationActive) {
+        _turnEngine.updateProgress(
+          distanceTraveledM: projection.distanceTraveledKm * 1000.0,
+          isOffRoute: isOff,
+          activityType: _activityType,
+        );
+      }
 
       _currentData = _currentData.copyWith(
         currentLatitude: pos.latitude,

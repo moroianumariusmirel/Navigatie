@@ -7,6 +7,7 @@ import '../../core/models/activity_type.dart';
 import '../../core/models/route_model.dart';
 import '../planner/widgets/route_loader_modal.dart';
 import '../widgets/interactive_route_map.dart';
+import '../offline/offline_maps_screen.dart';
 
 typedef RoutesScreen = ExploreScreen;
 
@@ -18,6 +19,7 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
+  int _currentTabIndex = 0; // 0: Routes & Trails, 1: Offline Maps
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -27,9 +29,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.dispose();
   }
 
-  void _showRoutePreviewModal(BuildContext context, RouteModel route, ActivityType activityType) {
+  void _showRoutePreviewModal(
+      BuildContext context, RouteModel route, ActivityType activityType) {
     final isCycling = activityType == ActivityType.cycling;
-    final primaryTheme = isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
+    final primaryTheme =
+        isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
 
     showModalBottomSheet(
       context: context,
@@ -41,7 +45,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
           decoration: const BoxDecoration(
             color: AppColors.surfaceContainerLow,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border(top: BorderSide(color: AppColors.outlineVariant, width: 1)),
+            border: Border(
+                top: BorderSide(color: AppColors.outlineVariant, width: 1)),
           ),
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -72,7 +77,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.onSurfaceVariant),
+                    icon: const Icon(Icons.close,
+                        color: AppColors.onSurfaceVariant),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -80,7 +86,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               const SizedBox(height: 6),
               Text(
                 'Difficulty: ${route.difficultyRating} • Trackpoints: ${route.coordinates.length} • Waypoints: ${route.waypoints.length}',
-                style: AppTypography.microCaps.copyWith(color: AppColors.secondaryFixed),
+                style: AppTypography.microCaps
+                    .copyWith(color: AppColors.secondaryFixed),
               ),
               const SizedBox(height: 12),
 
@@ -97,10 +104,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _ModalStat(label: 'DISTANCE', value: '${route.totalDistanceKm} km'),
-                  _ModalStat(label: 'ASCENT', value: '+${route.totalAscentM.toInt()}m'),
-                  _ModalStat(label: 'DESCENT', value: '-${route.totalDescentM.toInt()}m'),
-                  _ModalStat(label: 'MAX ELE', value: '${route.maxElevationM.toInt()}m'),
+                  _ModalStat(
+                      label: 'DISTANCE', value: '${route.totalDistanceKm} km'),
+                  _ModalStat(
+                      label: 'ASCENT',
+                      value: '+${route.totalAscentM.toInt()}m'),
+                  _ModalStat(
+                      label: 'DESCENT',
+                      value: '-${route.totalDescentM.toInt()}m'),
+                  _ModalStat(
+                      label: 'MAX ELE',
+                      value: '${route.maxElevationM.toInt()}m'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -108,7 +122,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    final telemetry = Provider.of<TelemetryService>(context, listen: false);
+                    final telemetry =
+                        Provider.of<TelemetryService>(context, listen: false);
                     telemetry.startNavigation(route: route);
                     Navigator.pop(ctx);
                     telemetry.setSelectedTabIndex(2); // Switch to Cockpit HUD
@@ -117,7 +132,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         backgroundColor: AppColors.surfaceContainerHighest,
                         content: Text(
                           'ACTIVATED IN COCKPIT HUD: ${route.name}',
-                          style: AppTypography.bodySm.copyWith(color: primaryTheme),
+                          style: AppTypography.bodySm
+                              .copyWith(color: primaryTheme),
                         ),
                       ),
                     );
@@ -126,9 +142,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   label: const Text('LOAD INTO COCKPIT HUD'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryTheme,
-                    foregroundColor: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
+                    foregroundColor:
+                        isCycling ? AppColors.onPrimary : AppColors.onSecondary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -143,12 +161,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget build(BuildContext context) {
     final telemetry = Provider.of<TelemetryService>(context);
     final isCycling = telemetry.activityType == ActivityType.cycling;
-    final primaryTheme = isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
+    final primaryTheme =
+        isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
 
     final savedRoutes = telemetry.savedOfflineRoutes;
     final filteredRoutes = _searchQuery.isEmpty
         ? savedRoutes
-        : savedRoutes.where((r) => r.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+        : savedRoutes
+            .where((r) =>
+                r.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+            .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -158,7 +180,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         title: Row(
           children: [
             Text(
-              'ROUTES & TRAILS',
+              _currentTabIndex == 0 ? 'ROUTES & TRAILS' : 'OFFLINE VECTOR MAPS',
               style: AppTypography.headlineSm.copyWith(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
@@ -175,7 +197,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
               child: Text(
                 isCycling ? 'CYCLING' : 'HIKING',
                 style: AppTypography.microCaps.copyWith(
-                  color: isCycling ? AppColors.primaryContainer : AppColors.secondaryFixed,
+                  color: isCycling
+                      ? AppColors.primaryContainer
+                      : AppColors.secondaryFixed,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -183,257 +207,420 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. TOP CONTROLS: Activity Toggle (Left) + Load Route Button (Right)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _ExploreActivityToggle(
-                  currentActivity: telemetry.activityType,
-                  onChanged: (type) {
-                    telemetry.setActivityType(type);
-                  },
-                ),
-                _ExploreLoadRouteButton(
-                  onTap: () {
-                    RouteLoaderModal.show(context, telemetry.activityType);
-                  },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 14),
-
-            // 2. Search & Filter Input for Saved Routes
+            // Segmented Top Tab Selector: [ ROUTES & TRAILS ] | [ OFFLINE MAPS ]
             Container(
+              height: 40,
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: AppColors.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val;
-                  });
-                },
-                style: const TextStyle(fontSize: 13, color: AppColors.primary),
-                decoration: InputDecoration(
-                  hintText: 'Search saved routes & GPX tracks...',
-                  hintStyle: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.onSurfaceVariant),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16, color: AppColors.onSurfaceVariant),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchQuery = '';
-                            });
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: Border.all(
+                  color: AppColors.outlineVariant.withOpacity(0.4),
+                  width: 1,
                 ),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // 3. Saved Routes Section Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'SAVED & IMPORTED ROUTES (${filteredRoutes.length})',
-                  style: AppTypography.labelCaps.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondaryFixed.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '100% OFFLINE READY',
-                    style: AppTypography.microCaps.copyWith(
-                      color: AppColors.secondaryFixed,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            // 4. Saved Routes List
-            if (filteredRoutes.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.folder_open, size: 36, color: AppColors.onSurfaceVariant),
-                    const SizedBox(height: 10),
-                    Text(
-                      _searchQuery.isNotEmpty
-                          ? 'No saved routes match "$_searchQuery".'
-                          : 'No saved routes yet.\nCreate a route in Planner or tap LOAD GPX to import route files.',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...filteredRoutes.map((route) {
-                final isCurrentActive = telemetry.activeRoute?.id == route.id;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isCurrentActive
-                          ? primaryTheme
-                          : AppColors.outlineVariant.withOpacity(0.2),
-                      width: isCurrentActive ? 1.5 : 1.0,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            route.activityType == ActivityType.cycling
-                                ? Icons.directions_bike
-                                : Icons.hiking,
-                            color: route.activityType == ActivityType.cycling
-                                ? AppColors.primaryContainer
-                                : AppColors.secondaryContainer,
-                            size: 16,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _currentTabIndex = 0;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(9),
+                      child: Container(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _currentTabIndex == 0
+                              ? primaryTheme
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Text(
+                          'ROUTES & TRAILS',
+                          style: AppTypography.labelCaps.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: _currentTabIndex == 0
+                                ? (isCycling
+                                    ? AppColors.onPrimary
+                                    : AppColors.onSecondary)
+                                : AppColors.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              route.name,
-                              style: AppTypography.bodyMd.copyWith(
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _currentTabIndex = 1;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(9),
+                      child: Container(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _currentTabIndex == 1
+                              ? primaryTheme
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.download_for_offline,
+                              size: 14,
+                              color: _currentTabIndex == 1
+                                  ? (isCycling
+                                      ? AppColors.onPrimary
+                                      : AppColors.onSecondary)
+                                  : AppColors.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'OFFLINE MAPS',
+                              style: AppTypography.labelCaps.copyWith(
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800,
+                                color: _currentTabIndex == 1
+                                    ? (isCycling
+                                        ? AppColors.onPrimary
+                                        : AppColors.onSecondary)
+                                    : AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Tab View Body: Tab 0 (Routes) or Tab 1 (Offline Maps)
+            Expanded(
+              child: _currentTabIndex == 1
+                  ? OfflineMapsScreen(activityType: telemetry.activityType)
+                  : SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 1. TOP CONTROLS: Activity Toggle (Left) + Load Route Button (Right)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _ExploreActivityToggle(
+                                currentActivity: telemetry.activityType,
+                                onChanged: (type) {
+                                  telemetry.setActivityType(type);
+                                },
+                              ),
+                              _ExploreLoadRouteButton(
+                                onTap: () {
+                                  RouteLoaderModal.show(
+                                      context, telemetry.activityType);
+                                },
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // 2. Search & Filter Input for Saved Routes
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: AppColors.outlineVariant
+                                      .withOpacity(0.3)),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (val) {
+                                setState(() {
+                                  _searchQuery = val;
+                                });
+                              },
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppColors.primary),
+                              decoration: InputDecoration(
+                                hintText: 'Search saved routes & GPX tracks...',
+                                hintStyle: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant),
+                                prefixIcon: const Icon(Icons.search,
+                                    size: 18,
+                                    color: AppColors.onSurfaceVariant),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear,
+                                            size: 16,
+                                            color: AppColors.onSurfaceVariant),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() {
+                                            _searchQuery = '';
+                                          });
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 12),
                               ),
                             ),
                           ),
-                          if (isCurrentActive)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: primaryTheme,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'ACTIVE HUD',
-                                style: AppTypography.microCaps.copyWith(
-                                  color: isCycling ? AppColors.onPrimary : AppColors.onSecondary,
-                                  fontWeight: FontWeight.w900,
+                          const SizedBox(height: 16),
+
+                          // 3. Saved Routes Section Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'SAVED & IMPORTED ROUTES (${filteredRoutes.length})',
+                                style: AppTypography.labelCaps.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                  letterSpacing: 1.0,
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${route.totalDistanceKm} km • +${route.totalAscentM.toInt()}m ascent',
-                            style: AppTypography.microCaps.copyWith(color: AppColors.onSurfaceVariant),
-                          ),
-                          Text(
-                            route.difficultyRating,
-                            style: AppTypography.microCaps.copyWith(color: primaryTheme),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          // Map Preview Button
-                          OutlinedButton.icon(
-                            onPressed: () => _showRoutePreviewModal(context, route, route.activityType),
-                            icon: const Icon(Icons.map, size: 14),
-                            label: const Text('PREVIEW'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: const BorderSide(color: AppColors.outlineVariant),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Activate Route Button
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                telemetry.updateActiveRoute(route);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    backgroundColor: AppColors.surfaceContainerHighest,
-                                    content: Text('Loaded ${route.name} into Cockpit HUD!'),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondaryFixed
+                                      .withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '100% OFFLINE READY',
+                                  style: AppTypography.microCaps.copyWith(
+                                    color: AppColors.secondaryFixed,
+                                    fontWeight: FontWeight.w800,
                                   ),
-                                );
-                              },
-                              icon: const Icon(Icons.play_arrow, size: 14),
-                              label: Text(isCurrentActive ? 'LOADED IN COCKPIT' : 'ACTIVATE'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isCurrentActive
-                                    ? AppColors.surfaceBright
-                                    : primaryTheme.withOpacity(0.2),
-                                foregroundColor: isCurrentActive
-                                    ? AppColors.primary
-                                    : primaryTheme,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
 
-                          // Delete Route Button
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.onSurfaceVariant),
-                            tooltip: 'Delete offline copy',
-                            onPressed: () {
-                              telemetry.removeOfflineRoute(route.id);
-                              setState(() {});
-                            },
-                          ),
+                          const SizedBox(height: 10),
+
+                          // 4. Saved Routes List
+                          if (filteredRoutes.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                    color: AppColors.outlineVariant
+                                        .withOpacity(0.2)),
+                              ),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.folder_open,
+                                      size: 36,
+                                      color: AppColors.onSurfaceVariant),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    _searchQuery.isNotEmpty
+                                        ? 'No saved routes match "$_searchQuery".'
+                                        : 'No saved routes yet.\nCreate a route in Planner or tap LOAD GPX to import route files.',
+                                    textAlign: TextAlign.center,
+                                    style: AppTypography.bodySm.copyWith(
+                                        color: AppColors.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            ...filteredRoutes.map((route) {
+                              final isCurrentActive =
+                                  telemetry.activeRoute?.id == route.id;
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isCurrentActive
+                                        ? primaryTheme
+                                        : AppColors.outlineVariant
+                                            .withOpacity(0.2),
+                                    width: isCurrentActive ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          route.activityType ==
+                                                  ActivityType.cycling
+                                              ? Icons.directions_bike
+                                              : Icons.hiking,
+                                          color: route.activityType ==
+                                                  ActivityType.cycling
+                                              ? AppColors.primaryContainer
+                                              : AppColors.secondaryContainer,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            route.name,
+                                            style:
+                                                AppTypography.bodyMd.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isCurrentActive)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: primaryTheme,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              'ACTIVE HUD',
+                                              style: AppTypography.microCaps
+                                                  .copyWith(
+                                                color: isCycling
+                                                    ? AppColors.onPrimary
+                                                    : AppColors.onSecondary,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          '${route.totalDistanceKm} km • +${route.totalAscentM.toInt()}m ascent',
+                                          style: AppTypography.microCaps
+                                              .copyWith(
+                                                  color: AppColors
+                                                      .onSurfaceVariant),
+                                        ),
+                                        Text(
+                                          route.difficultyRating,
+                                          style: AppTypography.microCaps
+                                              .copyWith(color: primaryTheme),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        // Map Preview Button
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _showRoutePreviewModal(context,
+                                                  route, route.activityType),
+                                          icon: const Icon(Icons.map, size: 14),
+                                          label: const Text('PREVIEW'),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppColors.primary,
+                                            side: const BorderSide(
+                                                color:
+                                                    AppColors.outlineVariant),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8)),
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 8, horizontal: 10),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+
+                                        // Activate Route Button
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              telemetry
+                                                  .updateActiveRoute(route);
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  backgroundColor: AppColors
+                                                      .surfaceContainerHighest,
+                                                  content: Text(
+                                                      'Loaded ${route.name} into Cockpit HUD!'),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.play_arrow,
+                                                size: 14),
+                                            label: Text(isCurrentActive
+                                                ? 'LOADED IN COCKPIT'
+                                                : 'ACTIVATE'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: isCurrentActive
+                                                  ? AppColors.surfaceBright
+                                                  : primaryTheme
+                                                      .withOpacity(0.2),
+                                              foregroundColor: isCurrentActive
+                                                  ? AppColors.primary
+                                                  : primaryTheme,
+                                              elevation: 0,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 8),
+                                              shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8)),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+
+                                        // Delete Route Button
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline,
+                                              size: 18,
+                                              color:
+                                                  AppColors.onSurfaceVariant),
+                                          tooltip: 'Delete offline copy',
+                                          onPressed: () {
+                                            telemetry
+                                                .removeOfflineRoute(route.id);
+                                            setState(() {});
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+
+                          const SizedBox(height: 24),
                         ],
                       ),
-                    ],
-                  ),
-                );
-              }),
-
-            const SizedBox(height: 24),
+                    ),
+            ),
           ],
         ),
       ),
@@ -476,7 +663,8 @@ class _ExploreActivityToggle extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isCycling ? AppColors.primaryContainer : Colors.transparent,
+                color:
+                    isCycling ? AppColors.primaryContainer : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: isCycling
                     ? [
@@ -493,7 +681,9 @@ class _ExploreActivityToggle extends StatelessWidget {
                   Icon(
                     Icons.directions_bike,
                     size: 15,
-                    color: isCycling ? AppColors.onPrimary : AppColors.onSurfaceVariant,
+                    color: isCycling
+                        ? AppColors.onPrimary
+                        : AppColors.onSurfaceVariant,
                   ),
                   const SizedBox(width: 5),
                   Text(
@@ -501,7 +691,9 @@ class _ExploreActivityToggle extends StatelessWidget {
                     style: AppTypography.labelCaps.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: isCycling ? AppColors.onPrimary : AppColors.onSurfaceVariant,
+                      color: isCycling
+                          ? AppColors.onPrimary
+                          : AppColors.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -516,7 +708,9 @@ class _ExploreActivityToggle extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: !isCycling ? AppColors.secondaryContainer : Colors.transparent,
+                color: !isCycling
+                    ? AppColors.secondaryContainer
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: !isCycling
                     ? [
@@ -533,7 +727,9 @@ class _ExploreActivityToggle extends StatelessWidget {
                   Icon(
                     Icons.hiking,
                     size: 15,
-                    color: !isCycling ? AppColors.onSecondary : AppColors.onSurfaceVariant,
+                    color: !isCycling
+                        ? AppColors.onSecondary
+                        : AppColors.onSurfaceVariant,
                   ),
                   const SizedBox(width: 5),
                   Text(
@@ -541,7 +737,9 @@ class _ExploreActivityToggle extends StatelessWidget {
                     style: AppTypography.labelCaps.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: !isCycling ? AppColors.onSecondary : AppColors.onSurfaceVariant,
+                      color: !isCycling
+                          ? AppColors.onSecondary
+                          : AppColors.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -579,7 +777,8 @@ class _ExploreLoadRouteButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.file_upload_outlined, size: 16, color: AppColors.secondaryFixed),
+            const Icon(Icons.file_upload_outlined,
+                size: 16, color: AppColors.secondaryFixed),
             const SizedBox(width: 6),
             Text(
               'LOAD GPX',

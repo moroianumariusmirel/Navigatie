@@ -1,0 +1,98 @@
+{
+  "version": 8,
+  "name": "TrailPulse Cycling Tactical Vector",
+  "metadata": {
+    "trailpulse:profile": "cycling",
+    "trailpulse:palette": "tactical_neon_dark"
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#080e1a"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#0d2238"
+      }
+    },
+    {
+      "id": "landcover_forest",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "filter": ["==", "class", "wood"],
+      "paint": {
+        "fill-color": "#09171b",
+        "fill-opacity": 0.6
+      }
+    },
+    {
+      "id": "contour_lines",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "contour",
+      "paint": {
+        "line-color": "#1f333e",
+        "line-width": 0.7,
+        "line-opacity": 0.4
+      }
+    },
+    {
+      "id": "secondary_roads",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "secondary", "tertiary"],
+      "paint": {
+        "line-color": "#2c3d52",
+        "line-width": 1.4
+      }
+    },
+    {
+      "id": "gravel_forestry_tracks",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["==", "class", "track"],
+      "paint": {
+        "line-color": "#a88e5d",
+        "line-width": 2.0,
+        "line-dasharray": [3, 1]
+      }
+    },
+    {
+      "id": "dedicated_cycleways",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "cycleway", "path"],
+      "paint": {
+        "line-color": "#00ffd0",
+        "line-width": 2.8
+      }
+    },
+    {
+      "id": "mtb_singletrack",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["==", "subclass", "mtb"],
+      "paint": {
+        "line-color": "#ff3366",
+        "line-width": 2.5
+      }
+    }
+  ]
+}
