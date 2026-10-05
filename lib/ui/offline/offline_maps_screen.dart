@@ -416,6 +416,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
   Widget _buildRegionTile(OfflineMapRegion region, Color themeColor, {bool isMaster = false}) {
     final isDownloading = region.state == RegionDownloadState.downloading;
     final isReady = region.state == RegionDownloadState.ready;
+    final isFailed = region.state == RegionDownloadState.failed;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -453,7 +454,9 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                             style: AppTypography.headlineSm.copyWith(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: isReady ? themeColor : AppColors.primary,
+                              color: isReady
+                                  ? themeColor
+                                  : (isFailed ? AppColors.error : AppColors.primary),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -486,7 +489,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               ),
               const SizedBox(width: 8),
 
-              // Action buttons (Download / Cancel / Delete)
+              // Action buttons (Download / Cancel / Retry / Delete)
               if (isReady) ...[
                 IconButton(
                   tooltip: 'Delete offline map file',
@@ -527,6 +530,18 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                     _downloadService.cancelDownload(region.id);
                   },
                 ),
+              ] else if (isFailed) ...[
+                IconButton(
+                  tooltip: 'Retry download',
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    size: 20,
+                    color: AppColors.error,
+                  ),
+                  onPressed: () {
+                    _downloadService.startDownload(region);
+                  },
+                ),
               ] else ...[
                 IconButton(
                   tooltip: 'Download offline pack',
@@ -542,6 +557,28 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               ],
             ],
           ),
+
+          // Error display if failed
+          if (isFailed && region.errorMessage != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.error_outline, size: 12, color: AppColors.error),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    region.errorMessage!,
+                    style: AppTypography.microCaps.copyWith(
+                      color: AppColors.error,
+                      fontSize: 8.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
 
           // Download progress bar
           if (isDownloading) ...[

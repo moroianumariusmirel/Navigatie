@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:pmtiles/pmtiles.dart';
+import 'package:pmtiles/src/directory.dart';
 import 'offline_tile_manager.dart';
 
 class DirEntry {
@@ -36,7 +37,7 @@ class _TileContent {
 /// Streams vector tile data directly from Protomaps daily builds via HTTP Range requests.
 class InAppPmtilesExtractor {
   static const String fallbackBuildUrl =
-      'https://build.protomaps.com/20261003.pmtiles';
+      'https://build.protomaps.com/20261005.pmtiles';
   static const String buildMetadataUrl =
       'https://build-metadata.protomaps.dev/builds.json';
 
@@ -50,25 +51,86 @@ class InAppPmtilesExtractor {
         .clamp(0, (1 << z) - 1);
   }
 
+  /// Helper to retry transient network failures with exponential backoff
+  static Future<T> retry<T>(
+    Future<T> Function() action, {
+    int maxRetries = 3,
+    Duration initialDelay = const Duration(milliseconds: 500),
+  }) async {
+    int attempt = 0;
+    while (true) {
+      try {
+        return await action();
+      } catch (e) {
+        attempt++;
+        if (attempt >= maxRetries) rethrow;
+        await Future.delayed(initialDelay * attempt);
+      }
+    }
+  }
+
+  /// Worker pool to process async tasks with bounded concurrency
+  static Future<List<R>> mapConcurrent<T, R>(
+    List<T> items,
+    Future<R> Function(T item) worker, {
+    int concurrency = 6,
+    bool Function()? isCancelled,
+    void Function(int completedCount, int totalCount)? onProgress,
+  }) async {
+    if (items.isEmpty) return <R>[];
+    final results = List<R?>.filled(items.length, null);
+    int nextIndex = 0;
+    int completed = 0;
+
+    Future<void> runWorker() async {
+      while (true) {
+        if (isCancelled != null && isCancelled()) break;
+        final i = nextIndex++;
+        if (i >= items.length) break;
+        results[i] = await worker(items[i]);
+        completed++;
+        if (onProgress != null && (completed % 50 == 0 || completed == items.length)) {
+          onProgress(completed, items.length);
+        }
+      }
+    }
+
+    final workerCount = min(concurrency, items.length);
+    final workers = List.generate(workerCount, (_) => runWorker());
+    await Future.wait(workers);
+    return results.cast<R>();
+  }
+
   /// Discovers the latest daily planet PMTiles build URL.
   static Future<String> getLatestBuildUrl({http.Client? client}) async {
     final c = client ?? http.Client();
     try {
       final res = await c
           .get(Uri.parse(buildMetadataUrl))
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data is List && data.isNotEmpty) {
-          final latest = data.first;
-          final key = latest['key'] as String?;
-          if (key != null && key.endsWith('.pmtiles')) {
-            return 'https://build.protomaps.com/$key';
+          final validBuilds = data.whereType<Map<String, dynamic>>().where((b) {
+            final key = b['key'] as String?;
+            return key != null && key.endsWith('.pmtiles');
+          }).toList();
+
+          if (validBuilds.isNotEmpty) {
+            // Sort descending so the latest date string is first (e.g. 20261005 > 20230918)
+            validBuilds.sort((a, b) {
+              final keyA = a['key'] as String;
+              final keyB = b['key'] as String;
+              return keyB.compareTo(keyA);
+            });
+            final newestKey = validBuilds.first['key'] as String;
+            debugPrint('[InAppPmtilesExtractor] Selected latest Protomaps build: $newestKey');
+            return 'https://build.protomaps.com/$newestKey';
           }
         }
       }
     } catch (e) {
-      debugPrint('[InAppPmtilesExtractor] Using fallback build URL ($e)');
+      debugPrint('[InAppPmtilesExtractor] Error discovering build URL ($e), using fallback: $fallbackBuildUrl');
     } finally {
       if (client == null) c.close();
     }
@@ -277,33 +339,32 @@ class InAppPmtilesExtractor {
       if (isCancelled()) throw Exception('Extraction cancelled');
       debugPrint('[InAppPmtilesExtractor] Total candidate tiles: ${tileIds.length}');
 
-      // Phase 1: Lookup tile locations in remote archive
+      // Phase 1: Lookup tile locations in remote archive with bounded concurrency and retry
       final contentsByOffset = <int, _TileContent>{};
       final tileToContent = <int, _TileContent>{};
 
-      const lookupBatchSize = 100;
-      for (int i = 0; i < tileIds.length; i += lookupBatchSize) {
-        if (isCancelled()) throw Exception('Extraction cancelled');
+      final entries = await mapConcurrent<int, Entry?>(
+        tileIds,
+        (id) => retry(() => remoteArchive!.lookup(id)),
+        concurrency: 6,
+        isCancelled: isCancelled,
+        onProgress: (completed, total) {
+          final lookupProgress = 0.01 + (completed / total) * 0.09;
+          onProgress(lookupProgress, 0, (region.sizeMb * 1024 * 1024).round());
+        },
+      );
 
-        final batch = tileIds.sublist(i, min(i + lookupBatchSize, tileIds.length));
-        final entries = await Future.wait(batch.map((id) => remoteArchive!.lookup(id)));
-
-        for (int j = 0; j < batch.length; j++) {
-          final entry = entries[j];
-          final id = batch[j];
-          if (entry != null && !entry.isLeaf && entry.length > 0) {
-            final content = contentsByOffset.putIfAbsent(
-              entry.offset,
-              () => _TileContent(sourceOffset: entry.offset, length: entry.length),
-            );
-            content.tileIds.add(id);
-            tileToContent[id] = content;
-          }
+      for (int j = 0; j < tileIds.length; j++) {
+        final entry = entries[j];
+        final id = tileIds[j];
+        if (entry != null && !entry.isLeaf && entry.length > 0) {
+          final content = contentsByOffset.putIfAbsent(
+            entry.offset,
+            () => _TileContent(sourceOffset: entry.offset, length: entry.length),
+          );
+          content.tileIds.add(id);
+          tileToContent[id] = content;
         }
-
-        // Progress up to 10% during lookup
-        final lookupProgress = 0.01 + (i / tileIds.length) * 0.09;
-        onProgress(lookupProgress, 0, (region.sizeMb * 1024 * 1024).round());
       }
 
       if (tileToContent.isEmpty) {
@@ -419,15 +480,17 @@ class InAppPmtilesExtractor {
         final rangeHeader =
             'bytes=${sourceTileDataOffset + start}-${sourceTileDataOffset + end - 1}';
 
-        final req = http.Request('GET', Uri.parse(remoteUrl));
-        req.headers['Range'] = rangeHeader;
-        final res = await client.send(req);
+        final bodyBytes = await retry(() async {
+          final req = http.Request('GET', Uri.parse(remoteUrl));
+          req.headers['Range'] = rangeHeader;
+          final res = await client.send(req);
 
-        if (res.statusCode != 206 && res.statusCode != 200) {
-          throw Exception('HTTP ${res.statusCode} fetching range $rangeHeader');
-        }
+          if (res.statusCode != 206 && res.statusCode != 200) {
+            throw Exception('HTTP ${res.statusCode} fetching range $rangeHeader');
+          }
 
-        final bodyBytes = await res.stream.toBytes();
+          return await res.stream.toBytes();
+        });
 
         for (final c in chunk) {
           final s = c.sourceOffset - start;

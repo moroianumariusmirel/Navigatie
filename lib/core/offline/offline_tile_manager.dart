@@ -1,6 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
-enum RegionDownloadState { notDownloaded, downloading, ready }
+enum RegionDownloadState { notDownloaded, downloading, ready, failed }
 
 class OfflineMapRegion {
   final String id;
@@ -24,6 +24,7 @@ class OfflineMapRegion {
   final bool hasHikingContours;
   final bool isCountryMaster;
   final int maxZoom;
+  final String? errorMessage;
 
   const OfflineMapRegion({
     required this.id,
@@ -47,6 +48,7 @@ class OfflineMapRegion {
     this.hasHikingContours = true,
     this.isCountryMaster = false,
     this.maxZoom = 14,
+    this.errorMessage,
   });
 
   LatLng get center => LatLng((minLat + maxLat) / 2.0, (minLon + maxLon) / 2.0);
@@ -70,6 +72,7 @@ class OfflineMapRegion {
     String? localPmtilesPath,
     String? downloadUrl,
     int? maxZoom,
+    String? errorMessage,
   }) {
     return OfflineMapRegion(
       id: id,
@@ -93,6 +96,7 @@ class OfflineMapRegion {
       hasHikingContours: hasHikingContours,
       isCountryMaster: isCountryMaster,
       maxZoom: maxZoom ?? this.maxZoom,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 
@@ -167,7 +171,7 @@ class OfflineTileManager {
             maxLon: 29.7155,
             downloadUrl: '$cdnBaseUrl/romania_all.pmtiles',
             isCountryMaster: true,
-            maxZoom: 13,
+            maxZoom: 10,
           ),
           OfflineMapRegion(
             id: 'ro_bucegi_brasov',

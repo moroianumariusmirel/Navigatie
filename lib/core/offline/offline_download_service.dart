@@ -237,6 +237,7 @@ class OfflineDownloadService extends ChangeNotifier {
     _updateRegionState(regionId, (r) => r.copyWith(
           state: RegionDownloadState.downloading,
           downloadProgress: 0.02,
+          errorMessage: null,
         ));
 
     try {
@@ -258,7 +259,14 @@ class OfflineDownloadService extends ChangeNotifier {
       if (isDemoUrl) {
         await _simulateDownload(targetRegion, tempFile, targetFile);
       } else if (isDirectPreCutPmtiles) {
-        await _realDownload(targetRegion, tempFile, targetFile);
+        try {
+          await _realDownload(targetRegion, tempFile, targetFile);
+        } catch (e) {
+          debugPrint(
+              '[OfflineDownloadService] Direct download failed ($e), falling back to in-app extractor');
+          if (tempFile.existsSync()) tempFile.deleteSync();
+          await _extractFromProtomaps(targetRegion, targetFile);
+        }
       } else {
         await _extractFromProtomaps(targetRegion, targetFile);
       }
@@ -268,6 +276,7 @@ class OfflineDownloadService extends ChangeNotifier {
         _updateRegionState(regionId, (r) => r.copyWith(
               state: RegionDownloadState.notDownloaded,
               downloadProgress: 0.0,
+              errorMessage: null,
             ));
         return;
       }
@@ -283,6 +292,7 @@ class OfflineDownloadService extends ChangeNotifier {
             state: RegionDownloadState.ready,
             downloadProgress: 1.0,
             localPmtilesPath: targetFile.path,
+            errorMessage: null,
           ));
 
       await _persistDownloadedRegistry();
@@ -291,13 +301,33 @@ class OfflineDownloadService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('[OfflineDownloadService] Download error for $regionId: $e');
+      final humanError = _formatErrorMessage(e);
       _updateRegionState(regionId, (r) => r.copyWith(
-            state: RegionDownloadState.notDownloaded,
+            state: RegionDownloadState.failed,
             downloadProgress: 0.0,
+            errorMessage: humanError,
           ));
+      notifyListeners();
     } finally {
       _cancelTokens.remove(regionId);
       _activeClients.remove(regionId);
+    }
+  }
+
+  String _formatErrorMessage(dynamic error) {
+    final msg = error.toString();
+    if (msg.contains('SocketException') || msg.contains('Failed host lookup')) {
+      return 'No internet connection. Check your network and retry.';
+    } else if (msg.contains('TimeoutException') || msg.contains('timed out')) {
+      return 'Connection timed out. Network is slow or unreachable.';
+    } else if (msg.contains('HTTP 429')) {
+      return 'Server busy. Please wait a moment and retry.';
+    } else if (msg.contains('HTTP 404')) {
+      return 'Map file not found on server.';
+    } else if (msg.contains('cancelled') || msg.contains('Cancelled')) {
+      return 'Download cancelled.';
+    } else {
+      return 'Download failed: $msg';
     }
   }
 
