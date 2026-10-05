@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:latlong2/latlong.dart';
+import '../maps/osm_tile_providers.dart';
 import '../storage/app_preferences_service.dart';
 import 'offline_tile_manager.dart';
+import 'pmtiles_extractor.dart';
 
 class OfflineDownloadService extends ChangeNotifier {
   static final OfflineDownloadService _instance = OfflineDownloadService._internal();
@@ -43,8 +46,14 @@ class OfflineDownloadService extends ChangeNotifier {
         for (final item in downloadedRegistry) {
           if (item is Map && item['id'] is String && item['path'] is String) {
             final path = item['path'] as String;
-            if (File(path).existsSync()) {
+            final file = File(path);
+            if (file.existsSync() && isValidPmtilesFile(file)) {
               registeredPaths[item['id'] as String] = path;
+            } else if (file.existsSync()) {
+              debugPrint('[OfflineDownloadService] Purging invalid registered archive: $path');
+              try {
+                file.deleteSync();
+              } catch (_) {}
             }
           }
         }
@@ -55,8 +64,15 @@ class OfflineDownloadService extends ChangeNotifier {
       for (final file in onDiskFiles) {
         final filename = file.uri.pathSegments.last;
         if (filename.endsWith('.pmtiles') && !filename.endsWith('.part')) {
-          final regionId = filename.substring(0, filename.length - 8);
-          registeredPaths[regionId] = file.path;
+          if (isValidPmtilesFile(file)) {
+            final regionId = filename.substring(0, filename.length - 8);
+            registeredPaths[regionId] = file.path;
+          } else {
+            debugPrint('[OfflineDownloadService] Cleaning up corrupt archive: ${file.path}');
+            try {
+              file.deleteSync();
+            } catch (_) {}
+          }
         }
       }
 
@@ -85,6 +101,11 @@ class OfflineDownloadService extends ChangeNotifier {
           regions: updatedRegions,
         );
       }).toList();
+
+      // Pre-warm active PMTiles into memory
+      for (final path in registeredPaths.values) {
+        OsmTileProviders.prewarm(path);
+      }
 
       _calculateTotalStorage();
       _isInitialized = true;
@@ -157,6 +178,57 @@ class OfflineDownloadService extends ChangeNotifier {
   bool isLocationCoveredOffline(LatLng point) =>
       findRegionForCoordinates(point) != null;
 
+  /// Returns the geographic center of the first available downloaded region,
+  /// or null if no offline map has been downloaded yet.
+  LatLng? get defaultOfflineCenter {
+    for (final country in _countries) {
+      for (final region in country.regions) {
+        if (region.state == RegionDownloadState.ready && region.localPmtilesPath != null) {
+          return region.center;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Verifies if a file exists, has adequate size, and conforms strictly to PMTiles V3
+  /// including the requirement that rootDirectoryOffset + rootDirectoryLength <= 16384.
+  static bool isValidPmtilesFile(File file) {
+    try {
+      if (!file.existsSync() || file.lengthSync() < 512) return false;
+      final raf = file.openSync(mode: FileMode.read);
+      final headerBytes = raf.readSync(127);
+      raf.closeSync();
+
+      if (headerBytes.length < 127) return false;
+      if (utf8.decode(headerBytes.sublist(0, 7), allowMalformed: true) != 'PMTiles') {
+        return false;
+      }
+
+      final bd = ByteData.sublistView(Uint8List.fromList(headerBytes));
+      final version = bd.getUint8(7);
+      if (version != 3) return false;
+
+      final rootDirOffset = bd.getUint32(8, Endian.little);
+      final rootDirLength = bd.getUint32(16, Endian.little);
+      // The PMTiles V3 spec strictly dictates that the root directory must be contained
+      // within the first 16,384 bytes.
+      if (rootDirOffset + rootDirLength > 16384) {
+        return false;
+      }
+
+      final tileDataOffset = bd.getUint32(56, Endian.little); // 0x38
+      final fileSize = file.lengthSync();
+      if (tileDataOffset > fileSize) {
+        return false;
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Starts downloading a region (streams to disk with progress callbacks)
   Future<void> startDownload(OfflineMapRegion targetRegion, {bool simulate = false}) async {
     final regionId = targetRegion.id;
@@ -175,15 +247,20 @@ class OfflineDownloadService extends ChangeNotifier {
       final targetFile = File('${mapsDir.path}/$regionId.pmtiles');
       final tempFile = File('${mapsDir.path}/$regionId.pmtiles.part');
 
-      // Check if simulation or real HTTP download
+      // Check if simulation, direct pre-cut PMTiles URL, or in-app extractor
       final isDemoUrl = targetRegion.downloadUrl.contains('example.com') ||
-          targetRegion.downloadUrl.contains('github.com/trailpulse') ||
           simulate;
+      final isDirectPreCutPmtiles = targetRegion.downloadUrl.isNotEmpty &&
+          targetRegion.downloadUrl.startsWith('http') &&
+          !targetRegion.downloadUrl.contains('github.com/trailpulse') &&
+          targetRegion.downloadUrl.endsWith('.pmtiles');
 
       if (isDemoUrl) {
         await _simulateDownload(targetRegion, tempFile, targetFile);
-      } else {
+      } else if (isDirectPreCutPmtiles) {
         await _realDownload(targetRegion, tempFile, targetFile);
+      } else {
+        await _extractFromProtomaps(targetRegion, targetFile);
       }
 
       if (_cancelTokens[regionId] == true) {
@@ -195,6 +272,12 @@ class OfflineDownloadService extends ChangeNotifier {
         return;
       }
 
+      // Validate PMTiles magic header before marking ready
+      if (!isValidPmtilesFile(targetFile)) {
+        if (targetFile.existsSync()) targetFile.deleteSync();
+        throw Exception('Downloaded file is not a valid PMTiles archive');
+      }
+
       // Mark ready and persist
       _updateRegionState(regionId, (r) => r.copyWith(
             state: RegionDownloadState.ready,
@@ -204,6 +287,7 @@ class OfflineDownloadService extends ChangeNotifier {
 
       await _persistDownloadedRegistry();
       _calculateTotalStorage();
+      await OsmTileProviders.prewarm(targetFile.path);
       notifyListeners();
     } catch (e) {
       debugPrint('[OfflineDownloadService] Download error for $regionId: $e');
@@ -291,6 +375,29 @@ class OfflineDownloadService extends ChangeNotifier {
     await tempFile.rename(targetFile.path);
   }
 
+  Future<void> _extractFromProtomaps(
+    OfflineMapRegion region,
+    File targetFile,
+  ) async {
+    final regionId = region.id;
+    final client = http.Client();
+    _activeClients[regionId] = client;
+
+    await InAppPmtilesExtractor.extractRegion(
+      region: region,
+      targetFile: targetFile,
+      httpClient: client,
+      isCancelled: () => _cancelTokens[regionId] == true,
+      onProgress: (progress, receivedBytes, totalBytes) {
+        _updateRegionState(regionId, (r) => r.copyWith(
+              downloadProgress: progress,
+              downloadedBytes: receivedBytes,
+              totalBytes: totalBytes,
+            ));
+      },
+    );
+  }
+
   void cancelDownload(String regionId) {
     _cancelTokens[regionId] = true;
     _activeClients[regionId]?.close();
@@ -354,6 +461,11 @@ class OfflineDownloadService extends ChangeNotifier {
       final targetFile = File('${mapsDir.path}/$originalName');
       await sourceFile.copy(targetFile.path);
 
+      if (!isValidPmtilesFile(targetFile)) {
+        if (targetFile.existsSync()) targetFile.deleteSync();
+        throw Exception('Imported file is not a valid PMTiles archive');
+      }
+
       final fileSize = targetFile.lengthSync();
       final sizeMb = double.parse((fileSize / (1024 * 1024)).toStringAsFixed(1));
 
@@ -403,6 +515,7 @@ class OfflineDownloadService extends ChangeNotifier {
       _updateRegionState(importedRegion.id, (_) => importedRegion);
       await _persistDownloadedRegistry();
       _calculateTotalStorage();
+      await OsmTileProviders.prewarm(targetFile.path);
       notifyListeners();
       return importedRegion;
     } catch (e) {

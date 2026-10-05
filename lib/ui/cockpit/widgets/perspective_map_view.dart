@@ -10,6 +10,7 @@ import '../../../core/models/route_model.dart';
 import '../../../core/models/activity_type.dart';
 import '../../../core/maps/osm_tile_providers.dart';
 import '../../../core/navigation/audio_navigation_service.dart';
+import '../../../core/offline/offline_download_service.dart';
 import '../../../core/telemetry/telemetry_service.dart';
 import 'turn_guidance_banner.dart';
 
@@ -77,11 +78,14 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
     final isCycling = widget.activityType == ActivityType.cycling;
     final primaryTheme = isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
 
+    // Fallback to downloaded offline region center if GPS lock not yet acquired indoors/airplane mode
+    final defaultPos = OfflineDownloadService().defaultOfflineCenter ?? const LatLng(47.912, 7.898);
+
     // Determine current user coordinate along route
     final userPos = widget.telemetry.currentPosition ??
         (widget.route?.coordinates.isNotEmpty == true
             ? widget.route!.coordinates.first
-            : const LatLng(47.912, 7.898));
+            : defaultPos);
 
     return Container(
       height: 380,
@@ -106,9 +110,12 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                 ),
                 children: [
                   // Dedicated OpenStreetMap tile provider (Seamlessly switches to Vector PMTiles if region is downloaded)
-                  OsmTileProviders.layerForActivity(
-                    widget.activityType,
-                    center: userPos,
+                  ListenableBuilder(
+                    listenable: OsmTileProviders.changeNotifier,
+                    builder: (context, _) => OsmTileProviders.layerForActivity(
+                      widget.activityType,
+                      center: userPos,
+                    ),
                   ),
 
                   // Route Polyline with dual-pass neon glow

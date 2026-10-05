@@ -23,6 +23,7 @@ class OfflineMapRegion {
   final bool hasCyclingProfiles;
   final bool hasHikingContours;
   final bool isCountryMaster;
+  final int maxZoom;
 
   const OfflineMapRegion({
     required this.id,
@@ -45,7 +46,10 @@ class OfflineMapRegion {
     this.hasCyclingProfiles = true,
     this.hasHikingContours = true,
     this.isCountryMaster = false,
+    this.maxZoom = 14,
   });
+
+  LatLng get center => LatLng((minLat + maxLat) / 2.0, (minLon + maxLon) / 2.0);
 
   bool contains(LatLng point) {
     return point.latitude >= minLat &&
@@ -65,6 +69,7 @@ class OfflineMapRegion {
     int? totalBytes,
     String? localPmtilesPath,
     String? downloadUrl,
+    int? maxZoom,
   }) {
     return OfflineMapRegion(
       id: id,
@@ -87,6 +92,7 @@ class OfflineMapRegion {
       hasCyclingProfiles: hasCyclingProfiles,
       hasHikingContours: hasHikingContours,
       isCountryMaster: isCountryMaster,
+      maxZoom: maxZoom ?? this.maxZoom,
     );
   }
 
@@ -97,6 +103,7 @@ class OfflineMapRegion {
       'state': state.name,
       'localPmtilesPath': localPmtilesPath,
       'sizeMb': sizeMb,
+      'maxZoom': maxZoom,
     };
   }
 }
@@ -144,7 +151,7 @@ class OfflineTileManager {
         id: 'ro',
         name: 'Romania',
         flag: '🇷🇴',
-        totalSizeMb: 540.0,
+        totalSizeMb: 550.0,
         regions: [
           OfflineMapRegion(
             id: 'ro_all',
@@ -152,14 +159,30 @@ class OfflineTileManager {
             countryName: 'Romania',
             countryFlag: '🇷🇴',
             name: 'Romania (Entire Country Master)',
-            description: 'Complete OSM vector basemap + Via Transilvanica + Carpathians 10m contours',
-            sizeMb: 540.0,
+            description: 'Complete OSM vector basemap + Via Transilvanica + Carpathians network',
+            sizeMb: 240.0,
             minLat: 43.6186,
             minLon: 20.2618,
             maxLat: 48.2654,
             maxLon: 29.7155,
             downloadUrl: '$cdnBaseUrl/romania_all.pmtiles',
             isCountryMaster: true,
+            maxZoom: 13,
+          ),
+          OfflineMapRegion(
+            id: 'ro_bucegi_brasov',
+            countryId: 'ro',
+            countryName: 'Romania',
+            countryFlag: '🇷🇴',
+            name: 'Bucegi Mountains & Brașov',
+            description: 'Bucegi Plateau, Babele, Omu Peak, Postăvaru, Piatra Craiului, Sinaia & Brașov MTB',
+            sizeMb: 11.5,
+            minLat: 45.3000,
+            minLon: 25.2500,
+            maxLat: 45.7500,
+            maxLon: 25.7500,
+            downloadUrl: '$cdnBaseUrl/romania_bucegi_brasov.pmtiles',
+            maxZoom: 15,
           ),
           OfflineMapRegion(
             id: 'ro_transylvania_carpathians',
@@ -168,12 +191,13 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Transylvania & Carpathian Arc',
             description: 'Bucegi, Făgăraș, Piatra Craiului, Apuseni, Brașov, Sibiu, Cluj singletrack',
-            sizeMb: 275.0,
+            sizeMb: 95.0,
             minLat: 45.1000,
             minLon: 22.5000,
             maxLat: 47.1500,
             maxLon: 26.2000,
             downloadUrl: '$cdnBaseUrl/romania_transylvania_carpathians.pmtiles',
+            maxZoom: 15,
           ),
           OfflineMapRegion(
             id: 'ro_muntenia_dobrogea',
@@ -182,12 +206,13 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Muntenia & Danube Delta',
             description: 'Bucharest, Prahova Valley, Dobrogea gravel routes, Danube Delta reserve',
-            sizeMb: 155.0,
+            sizeMb: 85.0,
             minLat: 43.6000,
             minLon: 24.8000,
             maxLat: 45.6000,
             maxLon: 29.7200,
             downloadUrl: '$cdnBaseUrl/romania_muntenia_dobrogea.pmtiles',
+            maxZoom: 15,
           ),
           OfflineMapRegion(
             id: 'ro_moldavia_bucovina',
@@ -196,12 +221,13 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Moldavia & Bucovina',
             description: 'Ceahlău National Park, Rarău, Suceava forest ways, Iași rolling hills',
-            sizeMb: 135.0,
+            sizeMb: 75.0,
             minLat: 45.8000,
             minLon: 25.0000,
             maxLat: 48.2700,
             maxLon: 28.2500,
             downloadUrl: '$cdnBaseUrl/romania_moldavia_bucovina.pmtiles',
+            maxZoom: 15,
           ),
           OfflineMapRegion(
             id: 'ro_banat_crisana',
@@ -210,12 +236,13 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Banat & Crișana',
             description: 'Danube Gorges (Cazane), Semenic, Cheile Nerei, Timișoara & Arad trails',
-            sizeMb: 115.0,
+            sizeMb: 65.0,
             minLat: 44.5000,
             minLon: 20.2600,
             maxLat: 47.4000,
             maxLon: 23.0000,
             downloadUrl: '$cdnBaseUrl/romania_banat_crisana.pmtiles',
+            maxZoom: 15,
           ),
         ],
       ),
@@ -395,14 +422,14 @@ class OfflineTileManager {
             countryId: 'it',
             countryName: 'Italy',
             countryFlag: '🇮🇹',
-            name: 'Tuscany & Northern Apennines',
-            description: 'L\'Eroica gravel routes, Chianti hills, Via Francigena pilgrimage',
-            sizeMb: 220.0,
-            minLat: 42.2000,
-            minLon: 9.6000,
-            maxLat: 44.5000,
-            maxLon: 12.5000,
-            downloadUrl: '$cdnBaseUrl/italy_tuscany.pmtiles',
+            name: 'Tuscany & Florence (Verified Pack)',
+            description: 'Florence, Chianti hills, L\'Eroica gravel routes & Arno valley trails',
+            sizeMb: 6.6,
+            minLat: 43.7000,
+            minLon: 11.1500,
+            maxLat: 43.8500,
+            maxLon: 11.3500,
+            downloadUrl: 'https://raw.githubusercontent.com/protomaps/PMTiles/main/spec/v3/protomaps(vector)ODbL_firenze.pmtiles',
           ),
         ],
       ),

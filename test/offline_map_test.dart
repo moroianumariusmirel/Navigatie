@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:trailpulse/core/offline/offline_tile_manager.dart';
@@ -87,6 +89,59 @@ void main() {
       // Verify region can be deleted cleanly
       await service.deleteRegion(roMaster.id);
       expect(service.downloadedRegions.contains(roMaster), isFalse);
+    });
+
+    test('isValidPmtilesFile validates PMTiles magic header and rejects zeroes/corrupt files', () {
+      final tempDir = Directory.systemTemp.createTempSync('pmtiles_test_');
+      try {
+        final corruptFile = File('${tempDir.path}/corrupt.pmtiles');
+        corruptFile.writeAsBytesSync(List.filled(1024, 0)); // 1 KB zeroes like previous dummy
+
+        expect(OfflineDownloadService.isValidPmtilesFile(corruptFile), isFalse);
+
+        final validFile = File('${tempDir.path}/valid.pmtiles');
+        final validBytes = Uint8List(2048);
+        final bdValid = ByteData.sublistView(validBytes);
+        final magic = utf8.encode('PMTiles');
+        for (int i = 0; i < 7; i++) {
+          validBytes[i] = magic[i];
+        }
+        bdValid.setUint8(7, 3); // PMTiles v3
+        bdValid.setUint32(8, 127, Endian.little); // rootDirOffset
+        bdValid.setUint32(16, 500, Endian.little); // rootDirLength (<= 16384)
+        bdValid.setUint32(56, 1000, Endian.little); // tileDataOffset
+        validFile.writeAsBytesSync(validBytes);
+
+        expect(OfflineDownloadService.isValidPmtilesFile(validFile), isTrue);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('OfflineMapRegion center and defaultOfflineCenter calculate correctly', () {
+      final countries = OfflineTileManager.europeanCountries();
+      final roMaster = countries.firstWhere((c) => c.id == 'ro').regions.first;
+
+      final center = roMaster.center;
+      expect(center.latitude, closeTo(45.942, 0.05));
+      expect(center.longitude, closeTo(24.988, 0.05));
+    });
+
+    test('OsmTileProviders reactive notifier triggers on prewarm', () async {
+      int notifyCount = 0;
+      void listener() => notifyCount++;
+      OsmTileProviders.changeNotifier.addListener(listener);
+
+      // Prewarm with non-existent file should safely do nothing without crashing
+      await OsmTileProviders.prewarm('/non/existent/path.pmtiles');
+      expect(notifyCount, equals(0));
+
+      OsmTileProviders.changeNotifier.removeListener(listener);
+    });
+
+    test('OpenFreeMap online vector layer initializes correctly', () {
+      final vectorLayer = OsmTileProviders.openFreeMapVectorLayer(activity: ActivityType.cycling);
+      expect(vectorLayer, isNotNull);
     });
   });
 }

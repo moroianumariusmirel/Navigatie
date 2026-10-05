@@ -10,6 +10,7 @@ import '../../core/models/explore_mode.dart';
 import '../../core/models/route_model.dart';
 import '../../core/models/waypoint_model.dart';
 import '../../core/maps/osm_tile_providers.dart';
+import '../../core/offline/offline_download_service.dart';
 import '../../core/routing/osm_routing_service.dart';
 import 'widgets/route_loader_modal.dart';
 
@@ -320,12 +321,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
       });
     }
 
+    final defaultOfflineCenter = OfflineDownloadService().defaultOfflineCenter;
     final fallbackRoute = _hasDismissedLoadedRoute ? null : telemetry.activeRoute;
     final displayRoute = _hasDismissedLoadedRoute
         ? null
         : (_customRoute ??
             fallbackRoute ??
-            (isCycling ? RouteModel.sampleSchauinsland() : RouteModel.sampleFeldbergHike()));
+            (defaultOfflineCenter != null
+                ? null
+                : (isCycling ? RouteModel.sampleSchauinsland() : RouteModel.sampleFeldbergHike())));
 
     final coordinates = _customRoute != null
         ? _customRoute!.coordinates
@@ -333,14 +337,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
             ? _plannedPoints
             : (!_hasDismissedLoadedRoute && telemetry.activeRoute != null
                 ? telemetry.activeRoute!.coordinates
-                : const <LatLng>[]));
+                : (displayRoute != null ? displayRoute.coordinates : const <LatLng>[])));
 
     final bool hasLoadedRoute = !_hasDismissedLoadedRoute &&
         (_customRoute != null || _plannedPoints.isNotEmpty || coordinates.isNotEmpty || (displayRoute != null && displayRoute.coordinates.isNotEmpty));
 
     final initialCenter = coordinates.isNotEmpty
         ? coordinates.first
-        : (userGps ?? const LatLng(47.912, 7.898));
+        : (userGps ?? (defaultOfflineCenter ?? const LatLng(47.912, 7.898)));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -405,9 +409,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
               ),
               children: [
                 // OpenStreetMap Activity Tile Layer (Seamlessly switches to Vector PMTiles if region is downloaded)
-                OsmTileProviders.layerForActivity(
-                  telemetry.activityType,
-                  center: initialCenter,
+                ListenableBuilder(
+                  listenable: OsmTileProviders.changeNotifier,
+                  builder: (context, _) => OsmTileProviders.layerForActivity(
+                    telemetry.activityType,
+                    center: initialCenter,
+                  ),
                 ),
 
                 // Route Polyline (Double Layer: Outer Glow + Solid Core)

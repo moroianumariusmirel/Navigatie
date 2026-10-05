@@ -88,9 +88,12 @@ class _InteractiveRouteMapState extends State<InteractiveRouteMap> {
             ),
             children: [
               // Dedicated Activity OSM Layer (Seamlessly switches to Vector PMTiles if region is downloaded)
-              OsmTileProviders.layerForActivity(
-                widget.activityType,
-                center: widget.route.coordinates.isNotEmpty ? widget.route.coordinates.first : null,
+              ListenableBuilder(
+                listenable: OsmTileProviders.changeNotifier,
+                builder: (context, _) => OsmTileProviders.layerForActivity(
+                  widget.activityType,
+                  center: widget.route.coordinates.isNotEmpty ? widget.route.coordinates.first : null,
+                ),
               ),
 
               // Tactical Route Polyline (Double Layer: Outer Glow + Solid Core)

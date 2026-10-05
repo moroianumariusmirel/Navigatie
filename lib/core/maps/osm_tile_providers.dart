@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'package:vector_map_tiles_pmtiles/vector_map_tiles_pmtiles.dart';
+import 'trailpulse_vector_themes.dart';
 import '../models/activity_type.dart';
 import '../offline/offline_download_service.dart';
 import '../offline/offline_tile_manager.dart';
@@ -27,8 +28,39 @@ class OsmTileProviders {
   /// Optional override for tests and offline mock fixtures
   static TileProvider? overrideTileProvider;
 
+  /// Notifier triggered whenever a local PMTiles provider is loaded or ready
+  static final ValueNotifier<int> changeNotifier = ValueNotifier<int>(0);
+
   /// Cache of active PMTiles providers to avoid recreating archive handles per frame
   static final Map<String, PmTilesVectorTileProvider> _pmtilesProviders = {};
+  static final Set<String> _loadingPaths = {};
+  static final Set<String> _failedPaths = {};
+
+  /// Pre-warms a local PMTiles file into memory and triggers changeNotifier
+  static Future<void> prewarm(String filePath) async {
+    if (_pmtilesProviders.containsKey(filePath) ||
+        _loadingPaths.contains(filePath) ||
+        _failedPaths.contains(filePath)) {
+      return;
+    }
+    _loadingPaths.add(filePath);
+    try {
+      final file = File(filePath);
+      if (!file.existsSync() || file.lengthSync() < 512) {
+        _loadingPaths.remove(filePath);
+        return;
+      }
+      final provider = await PmTilesVectorTileProvider.fromSource(filePath);
+      _pmtilesProviders[filePath] = provider;
+      _failedPaths.remove(filePath);
+      changeNotifier.value++;
+    } catch (e) {
+      _failedPaths.add(filePath);
+      debugPrint('[OsmTileProviders] Error pre-warming PMTiles archive: $e');
+    } finally {
+      _loadingPaths.remove(filePath);
+    }
+  }
 
   /// Primary tile layer selected dynamically based on ActivityType and center coordinates.
   /// If [center] is within a downloaded offline region with a valid local PMTiles archive,
@@ -71,25 +103,19 @@ class OsmTileProviders {
       if (region == null || region.localPmtilesPath == null) return null;
 
       final filePath = region.localPmtilesPath!;
-      if (!File(filePath).existsSync()) return null;
-
-      var provider = _pmtilesProviders[filePath];
-      if (provider == null) {
-        // Asynchronous caching or synchronous initialization
-        // Note: For initial build, if not cached yet, we start initialization and fallback to online
-        // until next frame
-        PmTilesVectorTileProvider.fromSource(filePath).then((p) {
-          _pmtilesProviders[filePath] = p;
-        }).catchError((e) {
-          debugPrint('[OsmTileProviders] Error loading PMTiles archive: $e');
-        });
+      if (!File(filePath).existsSync() || _failedPaths.contains(filePath)) {
         return null;
       }
 
-      // Select Protomaps Tactical Theme based on activity (Dark / Light)
-      final theme = activity == ActivityType.cycling
-          ? ProtomapsThemes.darkV4()
-          : ProtomapsThemes.lightV4();
+      var provider = _pmtilesProviders[filePath];
+      if (provider == null) {
+        // Kick off prewarming asynchronously; changeNotifier will trigger UI rebuild when ready
+        prewarm(filePath);
+        return null;
+      }
+
+      // High-Contrast Outdoor Navigation Vector Theme (CyclOSM / OSM styled)
+      final theme = TrailPulseVectorThemes.outdoorLight();
 
       return VectorTileLayer(
         key: ValueKey('pmtiles_${region.id}'),
@@ -98,11 +124,28 @@ class OsmTileProviders {
         }),
         theme: theme,
         layerMode: VectorTileLayerMode.vector,
+        maximumTileSubstitutionDifference: 4,
       );
     } catch (e) {
       debugPrint('[OsmTileProviders] Offline vector layer error: $e');
       return null;
     }
+  }
+
+  /// Builds a high-speed online vector layer powered by OpenFreeMap (OpenMapTiles schema)
+  static Widget openFreeMapVectorLayer({ActivityType activity = ActivityType.cycling}) {
+    final theme = TrailPulseVectorThemes.outdoorLight();
+
+    return VectorTileLayer(
+      key: const ValueKey('openfreemap_online_vector'),
+      tileProviders: TileProviders({
+        'protomaps': NetworkVectorTileProvider(
+          urlTemplate: 'https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf',
+        ),
+      }),
+      theme: theme,
+      layerMode: VectorTileLayerMode.vector,
+    );
   }
 
   /// CyclOSM - Designed specifically for bicycles, gravel tracks, MTB grades and smooth/rough surfaces
