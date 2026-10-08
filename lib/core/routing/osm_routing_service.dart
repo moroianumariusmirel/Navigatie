@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -8,9 +9,13 @@ import '../models/elevation_point.dart';
 import '../models/maneuver_instruction.dart';
 import '../models/waypoint_model.dart';
 import '../navigation/turn_navigation_engine.dart';
+import 'routing_engine.dart';
 
 class OsmRoutingService {
   static const Distance _distCalc = Distance();
+
+  /// Testing or offline-forcing flag to simulate offline mode
+  static bool simulatedOfflineMode = false;
 
   /// Calculates a real outdoor route through OpenStreetMap roads, tracks, and footpaths
   static Future<RouteModel> calculateRoute({
@@ -30,6 +35,10 @@ class OsmRoutingService {
     final url = 'https://routing.openstreetmap.de/$engine/route/v1/driving/$coordsParam?overview=full&geometries=geojson&steps=true';
 
     try {
+      if (simulatedOfflineMode) {
+        throw const SocketException('Simulated offline mode enabled');
+      }
+
       final response = await http.get(
         Uri.parse(url),
         headers: {
@@ -44,8 +53,26 @@ class OsmRoutingService {
           return _parseOsrmRoute(routeData, points, activityType, customName);
         }
       }
-    } catch (_) {
-      // Fallback to on-device spline interpolation if offline or server timeout
+      throw HttpException('Server returned non-200 status ${response.statusCode}');
+    } catch (e) {
+      // Network failed or offline: calculate using On-Device Offline Road Router!
+      try {
+        final offlineRouter = OnDeviceOfflineRouter();
+        final profile = activityToProfile(activityType);
+        final start = points.first;
+        final destination = points.last;
+        final waypoints = points.length > 2 ? points.sublist(1, points.length - 1) : null;
+
+        return await offlineRouter.calculateRoute(
+          start: start,
+          destination: destination,
+          profile: profile,
+          waypoints: waypoints,
+          customName: customName,
+        );
+      } catch (routerErr) {
+        // Fallback to on-device spline interpolation if offline road engine fails
+      }
     }
 
     return _generateOfflineFallbackRoute(points, activityType, customName);

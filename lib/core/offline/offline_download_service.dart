@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import '../maps/osm_tile_providers.dart';
 import '../storage/app_preferences_service.dart';
 import 'offline_tile_manager.dart';
+import 'offline_manifest_service.dart';
 import 'pmtiles_extractor.dart';
 
 class OfflineDownloadService extends ChangeNotifier {
@@ -21,6 +22,11 @@ class OfflineDownloadService extends ChangeNotifier {
 
   List<OfflineCountry> _countries = OfflineTileManager.europeanCountries();
   List<OfflineCountry> get countries => List.unmodifiable(_countries);
+
+  OfflineManifest? _manifest;
+  OfflineManifest? get manifest => _manifest;
+  bool _isSyncingManifest = false;
+  bool get isSyncingManifest => _isSyncingManifest;
 
   final Map<String, bool> _cancelTokens = {};
   final Map<String, http.Client> _activeClients = {};
@@ -87,12 +93,14 @@ class OfflineDownloadService extends ChangeNotifier {
                   : null);
           if (localPath != null && File(localPath).existsSync()) {
             final fileSize = File(localPath).lengthSync();
+            final actualSizeMb = double.parse((fileSize / (1024 * 1024)).toStringAsFixed(1));
             return region.copyWith(
               state: RegionDownloadState.ready,
               downloadProgress: 1.0,
               localPmtilesPath: localPath,
               downloadedBytes: fileSize,
               totalBytes: fileSize,
+              sizeMb: actualSizeMb,
             );
           }
           return region;
@@ -115,9 +123,73 @@ class OfflineDownloadService extends ChangeNotifier {
       _calculateTotalStorage();
       _isInitialized = true;
       notifyListeners();
+
+      // Check cached manifest to update dynamic sizes immediately
+      final cached = await OfflineManifestService.loadCachedManifest();
+      if (cached != null) {
+        applyManifest(cached);
+      }
+
+      // Non-blocking background sync from remote manifest
+      unawaited(syncManifest());
     } catch (e) {
       debugPrint('[OfflineDownloadService] Init error: $e');
     }
+  }
+
+  /// Applies an OfflineManifest to update sizes of un-downloaded regions dynamically
+  void applyManifest(OfflineManifest manifest) {
+    _manifest = manifest;
+    _countries = _countries.map((country) {
+      final updatedRegions = country.regions.map((region) {
+        final info = manifest.regions[region.id];
+        if (info != null) {
+          // If already downloaded and ready on-disk, maintain the real on-disk length
+          if (region.state == RegionDownloadState.ready) {
+            return region.copyWith(
+              downloadUrl: info.downloadUrl ?? region.downloadUrl,
+            );
+          }
+          return region.copyWith(
+            sizeMb: info.sizeMb,
+            totalBytes: info.totalBytes,
+            downloadUrl: info.downloadUrl ?? region.downloadUrl,
+          );
+        }
+        return region;
+      }).toList();
+
+      return OfflineCountry(
+        id: country.id,
+        name: country.name,
+        flag: country.flag,
+        totalSizeMb: country.effectiveTotalSizeMb,
+        regions: updatedRegions,
+      );
+    }).toList();
+    _calculateTotalStorage();
+    notifyListeners();
+  }
+
+  /// Synchronizes latest manifest from remote server in the background
+  Future<bool> syncManifest({String? url, http.Client? client}) async {
+    if (_isSyncingManifest) return false;
+    _isSyncingManifest = true;
+    notifyListeners();
+    try {
+      final remote = await OfflineManifestService.fetchRemoteManifest(
+        url: url,
+        client: client,
+      );
+      if (remote != null) {
+        applyManifest(remote);
+        return true;
+      }
+    } finally {
+      _isSyncingManifest = false;
+      notifyListeners();
+    }
+    return false;
   }
 
   Future<Directory> _getOfflineMapsDirectory() async {
@@ -290,11 +362,17 @@ class OfflineDownloadService extends ChangeNotifier {
         throw Exception('Downloaded file is not a valid PMTiles archive');
       }
 
+      final fileSize = targetFile.lengthSync();
+      final actualSizeMb = double.parse((fileSize / (1024 * 1024)).toStringAsFixed(1));
+
       // Mark ready and persist
       _updateRegionState(regionId, (r) => r.copyWith(
             state: RegionDownloadState.ready,
             downloadProgress: 1.0,
             localPmtilesPath: targetFile.path,
+            downloadedBytes: fileSize,
+            totalBytes: fileSize,
+            sizeMb: actualSizeMb,
             errorMessage: null,
           ));
 
@@ -461,6 +539,7 @@ class OfflineDownloadService extends ChangeNotifier {
                 downloadProgress: 0.0,
                 localPmtilesPath: null,
                 downloadedBytes: 0,
+                totalBytes: 0,
               ));
 
           await _persistDownloadedRegistry();

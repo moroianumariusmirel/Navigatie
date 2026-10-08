@@ -30,6 +30,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
     super.initState();
     _downloadService.initialize();
     _downloadService.addListener(_onServiceUpdate);
+    _downloadService.syncManifest();
   }
 
   @override
@@ -126,45 +127,106 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                   ),
                 ],
               ),
-              // Import local .pmtiles button
-              InkWell(
-                onTap: () async {
-                  final result = await _downloadService.importLocalPmtilesFile();
-                  if (result != null && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: AppColors.surfaceContainerHigh,
-                        content: Text(
-                          'Imported offline map: ${result.name} (${result.sizeMb} MB)',
-                          style: const TextStyle(color: AppColors.primaryContainer),
-                        ),
-                      ),
-                    );
-                  }
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLowest,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Sync sizes button
+                  InkWell(
+                    onTap: () async {
+                      final success = await _downloadService.syncManifest();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: AppColors.surfaceContainerHigh,
+                            duration: const Duration(seconds: 2),
+                            content: Text(
+                              success
+                                  ? 'Map catalog & sizes synced with server'
+                                  : 'Could not connect to server, using cached sizes',
+                              style: TextStyle(
+                                color: success ? AppColors.secondaryFixed : AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    },
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.file_open_outlined, color: themeColor, size: 14),
-                      const SizedBox(width: 5),
-                      Text(
-                        'IMPORT .PMTILES',
-                        style: AppTypography.microCaps.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _downloadService.isSyncingManifest
+                              ? SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+                                  ),
+                                )
+                              : Icon(Icons.sync_rounded, color: themeColor, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            'SYNC',
+                            style: AppTypography.microCaps.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+
+                  // Import local .pmtiles button
+                  InkWell(
+                    onTap: () async {
+                      final result = await _downloadService.importLocalPmtilesFile();
+                      if (result != null && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: AppColors.surfaceContainerHigh,
+                            content: Text(
+                              'Imported offline map: ${result.name} (${result.sizeMb} MB)',
+                              style: const TextStyle(color: AppColors.primaryContainer),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.file_open_outlined, color: themeColor, size: 14),
+                          const SizedBox(width: 5),
+                          Text(
+                            'IMPORT .PMTILES',
+                            style: AppTypography.microCaps.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -361,7 +423,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${subRegions.length} sub-regions • ~${country.totalSizeMb.toStringAsFixed(0)} MB complete',
+                          '${subRegions.length} sub-regions • ~${country.effectiveTotalSizeMb.toStringAsFixed(0)} MB complete',
                           style: AppTypography.microCaps.copyWith(
                             color: AppColors.onSurfaceVariant,
                           ),
@@ -481,7 +543,9 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
 
               // Size badge
               Text(
-                '${region.sizeMb.toStringAsFixed(0)} MB',
+                isReady && region.downloadedBytes > 0
+                    ? DeviceStorageService.formatBytes(region.downloadedBytes)
+                    : '${region.sizeMb.toStringAsFixed(0)} MB',
                 style: AppTypography.dataMetricMd.copyWith(
                   fontSize: 11,
                   color: AppColors.onSurfaceVariant,
@@ -495,13 +559,16 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                   tooltip: 'Delete offline map file',
                   icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
                   onPressed: () async {
+                    final sizeDisplay = region.downloadedBytes > 0
+                        ? DeviceStorageService.formatBytes(region.downloadedBytes)
+                        : '${region.sizeMb.toStringAsFixed(0)} MB';
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
                         backgroundColor: AppColors.surfaceContainerHigh,
                         title: const Text('Delete Map Pack?', style: TextStyle(color: AppColors.primary)),
                         content: Text(
-                          'Are you sure you want to delete ${region.name} (${region.sizeMb.toStringAsFixed(0)} MB) from local device storage?',
+                          'Are you sure you want to delete ${region.name} ($sizeDisplay) from local device storage?',
                           style: const TextStyle(color: AppColors.onSurface),
                         ),
                         actions: [
@@ -597,7 +664,7 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${(region.downloadProgress * 100).toStringAsFixed(0)}% • ${DeviceStorageService.formatBytes(region.downloadedBytes)} / ${region.sizeMb.toStringAsFixed(0)} MB',
+                  '${(region.downloadProgress * 100).toStringAsFixed(0)}% • ${DeviceStorageService.formatBytes(region.downloadedBytes)} / ${DeviceStorageService.formatBytes(region.totalBytes > 0 ? region.totalBytes : (region.sizeMb * 1024 * 1024).round())}',
                   style: AppTypography.microCaps.copyWith(
                     color: themeColor,
                     fontSize: 9,

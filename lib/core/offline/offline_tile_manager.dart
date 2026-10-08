@@ -73,6 +73,7 @@ class OfflineMapRegion {
     String? downloadUrl,
     int? maxZoom,
     String? errorMessage,
+    double? sizeMb,
   }) {
     return OfflineMapRegion(
       id: id,
@@ -81,7 +82,7 @@ class OfflineMapRegion {
       countryFlag: countryFlag,
       name: name,
       description: description,
-      sizeMb: sizeMb,
+      sizeMb: sizeMb ?? this.sizeMb,
       minLat: minLat,
       minLon: minLon,
       maxLat: maxLat,
@@ -141,11 +142,20 @@ class OfflineCountry {
 
   int get downloadedRegionsCount =>
       regions.where((r) => r.state == RegionDownloadState.ready).length;
+
+  /// Dynamic total size calculated from sub-regions (or master pack if no sub-regions)
+  double get effectiveTotalSizeMb {
+    final sub = subRegions;
+    if (sub.isEmpty) return totalSizeMb;
+    return sub.fold(0.0, (acc, r) => acc + r.sizeMb);
+  }
 }
 
 class OfflineTileManager {
   static const String cdnBaseUrl =
       'https://github.com/trailpulse/maps/releases/download/v1.0';
+  static const String defaultManifestUrl =
+      'https://raw.githubusercontent.com/trailpulse/maps/main/manifest.json';
 
   /// Comprehensive European map catalog for Cycling & Hiking with regional sub-packs
   static List<OfflineCountry> europeanCountries() {
@@ -155,7 +165,7 @@ class OfflineTileManager {
         id: 'ro',
         name: 'Romania',
         flag: '🇷🇴',
-        totalSizeMb: 550.0,
+        totalSizeMb: 500.0,
         regions: [
           OfflineMapRegion(
             id: 'ro_all',
@@ -163,8 +173,8 @@ class OfflineTileManager {
             countryName: 'Romania',
             countryFlag: '🇷🇴',
             name: 'Romania (Entire Country Master)',
-            description: 'Complete OSM vector basemap + Via Transilvanica + Carpathians network',
-            sizeMb: 240.0,
+            description: 'Complete OSM vector basemap + Via Transilvanica + Carpathians network (Zoom 0-10)',
+            sizeMb: 59.0,
             minLat: 43.6186,
             minLon: 20.2618,
             maxLat: 48.2654,
@@ -180,7 +190,7 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Bucegi Mountains & Brașov',
             description: 'Bucegi Plateau, Babele, Omu Peak, Postăvaru, Piatra Craiului, Sinaia & Brașov MTB',
-            sizeMb: 11.5,
+            sizeMb: 8.3,
             minLat: 45.3000,
             minLon: 25.2500,
             maxLat: 45.7500,
@@ -195,7 +205,7 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Transylvania & Carpathian Arc',
             description: 'Bucegi, Făgăraș, Piatra Craiului, Apuseni, Brașov, Sibiu, Cluj singletrack',
-            sizeMb: 95.0,
+            sizeMb: 135.0,
             minLat: 45.1000,
             minLon: 22.5000,
             maxLat: 47.1500,
@@ -210,7 +220,7 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Muntenia & Danube Delta',
             description: 'Bucharest, Prahova Valley, Dobrogea gravel routes, Danube Delta reserve',
-            sizeMb: 85.0,
+            sizeMb: 152.0,
             minLat: 43.6000,
             minLon: 24.8000,
             maxLat: 45.6000,
@@ -225,7 +235,7 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Moldavia & Bucovina',
             description: 'Ceahlău National Park, Rarău, Suceava forest ways, Iași rolling hills',
-            sizeMb: 75.0,
+            sizeMb: 110.0,
             minLat: 45.8000,
             minLon: 25.0000,
             maxLat: 48.2700,
@@ -240,7 +250,7 @@ class OfflineTileManager {
             countryFlag: '🇷🇴',
             name: 'Banat & Crișana',
             description: 'Danube Gorges (Cazane), Semenic, Cheile Nerei, Timișoara & Arad trails',
-            sizeMb: 65.0,
+            sizeMb: 95.0,
             minLat: 44.5000,
             minLon: 20.2600,
             maxLat: 47.4000,

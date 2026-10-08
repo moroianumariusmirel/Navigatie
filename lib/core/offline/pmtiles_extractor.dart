@@ -436,6 +436,9 @@ class InAppPmtilesExtractor {
         sink.add(leafDirBytes);
       }
 
+      // Announce exact calculated total tile size before range streaming begins
+      onProgress(0.10, 0, totalTileDataLength);
+
       // Phase 3: Coalesce adjacent tile contents into batched HTTP Range requests
       final chunks = <List<_TileContent>>[];
       List<_TileContent> currentChunk = [];

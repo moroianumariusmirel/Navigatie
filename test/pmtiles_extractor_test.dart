@@ -243,7 +243,7 @@ void main() {
 
       expect(bucegi.name, contains('Bucegi'));
       expect(bucegi.maxZoom, equals(15));
-      expect(bucegi.sizeMb, closeTo(11.5, 1.0));
+      expect(bucegi.sizeMb, closeTo(8.3, 1.0));
       expect(bucegi.minLat, equals(45.3));
       expect(bucegi.maxLat, equals(45.75));
     });

@@ -149,5 +149,24 @@ void main() {
       // Prior to downloading, returns null
       expect(region, isNull);
     });
+
+    test('Accurate map sizing and effectiveTotalSizeMb reflection', () {
+      final countries = OfflineTileManager.europeanCountries();
+      final ro = countries.firstWhere((c) => c.id == 'ro');
+
+      // Calibrated sizes
+      final muntenia = ro.regions.firstWhere((r) => r.id == 'ro_muntenia_dobrogea');
+      expect(muntenia.sizeMb, equals(152.0));
+
+      final roMaster = ro.regions.firstWhere((r) => r.id == 'ro_all');
+      expect(roMaster.sizeMb, equals(59.0));
+
+      // effectiveTotalSizeMb sums sub-regions
+      expect(ro.effectiveTotalSizeMb, closeTo(500.3, 1.0));
+
+      // copyWith allows dynamic on-disk size update
+      final updatedMuntenia = muntenia.copyWith(sizeMb: 154.6);
+      expect(updatedMuntenia.sizeMb, equals(154.6));
+    });
   });
 }
