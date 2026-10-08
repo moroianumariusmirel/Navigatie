@@ -44,34 +44,35 @@ class OfflineDownloadService extends ChangeNotifier {
       final Map<String, String> registeredPaths = {};
       if (downloadedRegistry is List) {
         for (final item in downloadedRegistry) {
-          if (item is Map && item['id'] is String && item['path'] is String) {
-            final path = item['path'] as String;
-            final file = File(path);
-            if (file.existsSync() && isValidPmtilesFile(file)) {
-              registeredPaths[item['id'] as String] = path;
-            } else if (file.existsSync()) {
-              debugPrint('[OfflineDownloadService] Purging invalid registered archive: $path');
-              try {
-                file.deleteSync();
-              } catch (_) {}
+          if (item is Map && item['id'] is String) {
+            final path = (item['localPmtilesPath'] ?? item['path']) as String?;
+            if (path != null) {
+              final file = File(path);
+              if (file.existsSync() && isValidPmtilesFile(file)) {
+                registeredPaths[item['id'] as String] = path;
+              }
             }
           }
         }
       }
 
-      // Check on-disk pmtiles files that match region IDs
-      final onDiskFiles = baseDir.listSync().whereType<File>();
-      for (final file in onDiskFiles) {
-        final filename = file.uri.pathSegments.last;
-        if (filename.endsWith('.pmtiles') && !filename.endsWith('.part')) {
-          if (isValidPmtilesFile(file)) {
-            final regionId = filename.substring(0, filename.length - 8);
-            registeredPaths[regionId] = file.path;
-          } else {
-            debugPrint('[OfflineDownloadService] Cleaning up corrupt archive: ${file.path}');
-            try {
-              file.deleteSync();
-            } catch (_) {}
+      // Check on-disk pmtiles files that match region IDs or aliases
+      if (baseDir.existsSync()) {
+        final onDiskFiles = baseDir.listSync().whereType<File>();
+        for (final file in onDiskFiles) {
+          final filename = file.uri.pathSegments.last;
+          if (filename.endsWith('.pmtiles') && !filename.endsWith('.part')) {
+            if (isValidPmtilesFile(file)) {
+              final rawId = filename.substring(0, filename.length - 8);
+              registeredPaths[rawId] = file.path;
+
+              // Support aliases: romania_all <-> ro_all, romania_bucegi_brasov <-> ro_bucegi_brasov
+              if (rawId.startsWith('romania_')) {
+                registeredPaths['ro_${rawId.substring(8)}'] = file.path;
+              } else if (rawId.startsWith('ro_')) {
+                registeredPaths['romania_${rawId.substring(3)}'] = file.path;
+              }
+            }
           }
         }
       }
@@ -79,7 +80,11 @@ class OfflineDownloadService extends ChangeNotifier {
       // Sync state with catalog
       _countries = _countries.map((country) {
         final updatedRegions = country.regions.map((region) {
-          final localPath = registeredPaths[region.id];
+          final localPath = registeredPaths[region.id] ??
+              registeredPaths['ro_${region.id}'] ??
+              (region.id.startsWith('ro_')
+                  ? registeredPaths['romania_${region.id.substring(3)}']
+                  : null);
           if (localPath != null && File(localPath).existsSync()) {
             final fileSize = File(localPath).lengthSync();
             return region.copyWith(
@@ -211,9 +216,7 @@ class OfflineDownloadService extends ChangeNotifier {
 
       final rootDirOffset = bd.getUint32(8, Endian.little);
       final rootDirLength = bd.getUint32(16, Endian.little);
-      // The PMTiles V3 spec strictly dictates that the root directory must be contained
-      // within the first 16,384 bytes.
-      if (rootDirOffset + rootDirLength > 16384) {
+      if (rootDirLength == 0 || rootDirOffset + rootDirLength > 65536) {
         return false;
       }
 

@@ -143,5 +143,11 @@ void main() {
       final vectorLayer = OsmTileProviders.openFreeMapVectorLayer(activity: ActivityType.cycling);
       expect(vectorLayer, isNotNull);
     });
+
+    test('getActiveOfflineRegion handles null point gracefully', () {
+      final region = OsmTileProviders.getActiveOfflineRegion(null);
+      // Prior to downloading, returns null
+      expect(region, isNull);
+    });
   });
 }

@@ -29,6 +29,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   String? _errorMessage;
   bool _hasAutoCentered = false;
   bool _hasDismissedLoadedRoute = false;
+  LatLng? _userPannedCenter;
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
     setState(() {
@@ -344,7 +345,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     final initialCenter = coordinates.isNotEmpty
         ? coordinates.first
-        : (userGps ?? (defaultOfflineCenter ?? const LatLng(47.912, 7.898)));
+        : (userGps ?? (defaultOfflineCenter ?? const LatLng(45.5, 25.5)));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -403,6 +404,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 minZoom: 4.0,
                 maxZoom: 18.0,
                 onTap: _onMapTap,
+                onPositionChanged: (camera, hasGesture) {
+                  if (hasGesture) {
+                    _userPannedCenter = camera.center;
+                  }
+                },
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all,
                 ),
@@ -413,7 +419,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   listenable: OsmTileProviders.changeNotifier,
                   builder: (context, _) => OsmTileProviders.layerForActivity(
                     telemetry.activityType,
-                    center: initialCenter,
+                    center: _userPannedCenter ?? initialCenter,
                   ),
                 ),
 

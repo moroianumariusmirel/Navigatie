@@ -47,6 +47,7 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
   late AnimationController _radarController;
   late final MapController _mapController;
   bool _showLiveOsm = true;
+  LatLng? _userPannedCenter;
 
   @override
   void initState() {
@@ -79,7 +80,7 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
     final primaryTheme = isCycling ? AppColors.primaryContainer : AppColors.secondaryContainer;
 
     // Fallback to downloaded offline region center if GPS lock not yet acquired indoors/airplane mode
-    final defaultPos = OfflineDownloadService().defaultOfflineCenter ?? const LatLng(47.912, 7.898);
+    final defaultPos = OfflineDownloadService().defaultOfflineCenter ?? const LatLng(45.5, 25.5);
 
     // Determine current user coordinate along route
     final userPos = widget.telemetry.currentPosition ??
@@ -104,6 +105,11 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                   initialRotation: 0.0,
                   minZoom: 6.0,
                   maxZoom: 19.0,
+                  onPositionChanged: (camera, hasGesture) {
+                    if (hasGesture) {
+                      _userPannedCenter = camera.center;
+                    }
+                  },
                   interactionOptions: const InteractionOptions(
                     flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
                   ),
@@ -114,7 +120,7 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                     listenable: OsmTileProviders.changeNotifier,
                     builder: (context, _) => OsmTileProviders.layerForActivity(
                       widget.activityType,
-                      center: userPos,
+                      center: _userPannedCenter ?? userPos,
                     ),
                   ),
 

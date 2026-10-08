@@ -72,7 +72,7 @@ class OsmTileProviders {
     LatLng? center,
   }) {
     final tp = tileProvider ?? overrideTileProvider;
-    if (center != null && tp == null) {
+    if (tp == null) {
       final offlineLayer = getOfflineVectorLayerIfAvailable(center, activity);
       if (offlineLayer != null) {
         return offlineLayer;
@@ -86,18 +86,27 @@ class OsmTileProviders {
     }
   }
 
-  /// Checks if [point] is inside a downloaded PMTiles file on the device
-  static OfflineMapRegion? getActiveOfflineRegion(LatLng point) {
+  /// Checks if [point] is inside a downloaded PMTiles file on the device,
+  /// or falls back to any ready downloaded region if [point] is null.
+  static OfflineMapRegion? getActiveOfflineRegion([LatLng? point]) {
     try {
       final downloadService = OfflineDownloadService();
-      return downloadService.findRegionForCoordinates(point);
+      if (point != null) {
+        final region = downloadService.findRegionForCoordinates(point);
+        if (region != null) return region;
+      }
+      final downloaded = downloadService.downloadedRegions;
+      if (downloaded.isNotEmpty) {
+        return downloaded.first;
+      }
+      return null;
     } catch (_) {
       return null;
     }
   }
 
   /// Builds a [VectorTileLayer] from a local PMTiles archive if available for [center]
-  static Widget? getOfflineVectorLayerIfAvailable(LatLng center, ActivityType activity) {
+  static Widget? getOfflineVectorLayerIfAvailable(LatLng? center, ActivityType activity) {
     try {
       final region = getActiveOfflineRegion(center);
       if (region == null || region.localPmtilesPath == null) return null;
@@ -124,7 +133,7 @@ class OsmTileProviders {
         }),
         theme: theme,
         layerMode: VectorTileLayerMode.vector,
-        maximumTileSubstitutionDifference: 4,
+        maximumTileSubstitutionDifference: 8,
       );
     } catch (e) {
       debugPrint('[OsmTileProviders] Offline vector layer error: $e');
