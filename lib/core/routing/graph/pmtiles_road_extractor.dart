@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:latlong2/latlong.dart';
 import 'package:pmtiles/pmtiles.dart';
+// ignore: implementation_imports
+import 'package:pmtiles/src/directory.dart' as pmtiles_dir;
 import 'package:vector_tile/vector_tile.dart';
 import '../offline_routing_graph.dart';
 
@@ -112,23 +114,52 @@ class PmtilesRoadExtractor {
     final segments = <ExtractedRoadSegment>[];
 
     try {
-      final entries = <dynamic>[];
-      for (final e in archive.root.entries) {
-        if (!e.isLeaf) {
-          final zxy = ZXY.fromTileId(e.tileId);
-          if (zxy.z == 14) {
-            entries.add(e);
+      final header = archive.header;
+      final leafOffset = header.leafDirectoriesOffset;
+
+      // Collect all tile IDs at zoom 14 by traversing root and any leaf directories
+      final targetTileIds = <int>{};
+      final dirQueue = <pmtiles_dir.Directory>[archive.root];
+
+      final raf = await pmtilesFile.open(mode: FileMode.read);
+      try {
+        while (dirQueue.isNotEmpty) {
+          final dir = dirQueue.removeLast();
+          for (final entry in dir.entries) {
+            if (entry.isLeaf) {
+              if (leafOffset > 0 && entry.length > 0) {
+                await raf.setPosition(leafOffset + entry.offset);
+                final compressed = await raf.read(entry.length);
+                final uncompressed = header.internalCompression == Compression.none
+                    ? compressed
+                    : zlib.decoder.convert(compressed);
+                final leafDir = pmtiles_dir.Directory.from(uncompressed, header: header);
+                dirQueue.add(leafDir);
+              }
+            } else {
+              final runLength = entry.runLength > 0 ? entry.runLength : 1;
+              for (int i = 0; i < runLength; i++) {
+                final id = entry.tileId + i;
+                final zxy = ZXY.fromTileId(id);
+                if (zxy.z == 14) {
+                  targetTileIds.add(id);
+                }
+              }
+            }
           }
         }
+      } finally {
+        await raf.close();
       }
 
-      final total = entries.length;
+      final sortedTileIds = targetTileIds.toList()..sort();
+      final total = sortedTileIds.length;
       int processed = 0;
 
-      for (final entry in entries) {
-        final zxy = ZXY.fromTileId(entry.tileId as int);
-        final tile = await archive.tile(entry.tileId as int);
-        final bytes = await tile.bytes();
+      for (final tileId in sortedTileIds) {
+        final zxy = ZXY.fromTileId(tileId);
+        final tile = await archive.tile(tileId);
+        final bytes = tile.bytes();
         if (bytes.isNotEmpty) {
           final vTile = VectorTile.fromBytes(bytes: Uint8List.fromList(bytes));
 

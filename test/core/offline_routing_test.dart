@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:trailpulse/core/routing/offline_routing_graph.dart';
 import 'package:trailpulse/core/routing/routing_engine.dart';
-import 'package:trailpulse/core/routing/graph/pmtiles_road_extractor.dart';
 import 'package:trailpulse/core/routing/graph/road_graph_builder.dart';
 
 void main() {
@@ -81,6 +80,13 @@ void main() {
       expect(route.totalDistanceKm, greaterThan(4.0));
       expect(route.maneuvers.isNotEmpty, isTrue);
       expect(route.name, 'Brasov to Poiana Test Route');
+    });
+
+    test('RoadGraphBuilder throws StateError when given empty road segments', () {
+      expect(
+        () => RoadGraphBuilder.buildGraph([]),
+        throwsA(isA<StateError>()),
+      );
     });
   });
 }

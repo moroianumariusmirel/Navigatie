@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import '../offline_routing_graph.dart';
 import 'pmtiles_road_extractor.dart';
@@ -21,6 +20,10 @@ class RoadGraphBuilder {
 
   /// Takes extracted road segments and builds a connected topological graph
   static OfflineRoutingGraph buildGraph(List<ExtractedRoadSegment> segments) {
+    if (segments.isEmpty) {
+      throw StateError('No road segments found to build routing graph.');
+    }
+
     final graph = OfflineRoutingGraph();
 
     // Map each snapped coordinate bucket to a single unique node ID
@@ -69,6 +72,10 @@ class RoadGraphBuilder {
           geometry: [p1, p2],
         ));
       }
+    }
+
+    if (graph.nodes.isEmpty) {
+      throw StateError('Failed to build road network topology: 0 nodes generated from segments.');
     }
 
     return graph;

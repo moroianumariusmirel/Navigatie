@@ -57,8 +57,8 @@ class OsmRoutingService {
       throw HttpException('Server returned non-200 status ${response.statusCode}');
     } catch (e) {
       // Network failed or offline: calculate using On-Device Offline Road Router!
+      final offlineRouter = OnDeviceOfflineRouter();
       try {
-        final offlineRouter = OnDeviceOfflineRouter();
         final profile = activityToProfile(activityType);
         final start = points.first;
         final destination = points.last;
@@ -72,7 +72,20 @@ class OsmRoutingService {
           customName: customName,
         );
       } catch (routerErr) {
-        // Fallback to on-device spline interpolation if offline road engine fails
+        debugPrint('[OsmRoutingService] Offline road routing error: $routerErr');
+
+        // Check if an offline graph actually covers this region
+        final start = points.first;
+        final destination = points.last;
+        final graph = await offlineRouter.getRoutingGraphForArea(start) ??
+            await offlineRouter.getRoutingGraphForArea(destination);
+
+        // If an offline map covers the area, surface the real routing error so user/planner knows why it failed
+        if (graph != null) {
+          rethrow;
+        }
+
+        // Only fall back to straight line interpolation if no offline map has been downloaded
       }
     }
 
