@@ -32,6 +32,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   LatLng? _userPannedCenter;
 
   void _onMapTap(TapPosition tapPosition, LatLng point) {
+    bool shouldRecalculate = false;
     setState(() {
       _hasDismissedLoadedRoute = false;
       if (_plannedPoints.isEmpty) {
@@ -40,13 +41,17 @@ class _PlannerScreenState extends State<PlannerScreen> {
       } else if (_plannedPoints.length == 1) {
         // Point 2: Arrival Point (B) -> Trigger route calculation
         _plannedPoints.add(point);
-        _recalculateRoute();
+        shouldRecalculate = true;
       } else {
         // Point 3+: Insert intermediate stop waypoint right before arrival point
         _plannedPoints.insert(_plannedPoints.length - 1, point);
-        _recalculateRoute();
+        shouldRecalculate = true;
       }
     });
+
+    if (shouldRecalculate) {
+      _recalculateRoute();
+    }
   }
 
   Future<void> _recalculateRoute([ActivityType? overrideActivity]) async {
@@ -591,31 +596,51 @@ class _PlannerScreenState extends State<PlannerScreen> {
           Positioned(
             bottom: 120,
             left: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest.withOpacity(0.90),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: primaryTheme.withOpacity(0.4)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isCycling ? Icons.directions_bike : Icons.terrain,
-                    size: 13,
-                    color: primaryTheme,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    isCycling ? 'CYCLOSM • CYCLE TRACKS' : 'OPENTOPOMAP • TOPO CONTOURS',
-                    style: AppTypography.microCaps.copyWith(
-                      color: AppColors.primary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest.withOpacity(0.90),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: primaryTheme.withOpacity(0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isCycling ? Icons.directions_bike : Icons.terrain,
+                      size: 13,
+                      color: primaryTheme,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 5),
+                    Text(
+                      isCycling ? 'CYCLOSM • CYCLE TRACKS' : 'OPENTOPOMAP • TOPO CONTOURS',
+                      style: AppTypography.microCaps.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (displayRoute != null && (displayRoute.id.startsWith('offline_router') || displayRoute.id.startsWith('offline_calc'))) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          displayRoute.id.startsWith('offline_router') ? 'OFFLINE ROAD ROUTE' : 'OFFLINE STRAIGHT FALLBACK',
+                          style: AppTypography.microCaps.copyWith(
+                            color: displayRoute.id.startsWith('offline_router') ? AppColors.secondary : AppColors.error,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1147,22 +1172,24 @@ class _PlannerScreenState extends State<PlannerScreen> {
             point: pt,
             width: 32,
             height: 32,
-            child: Container(
-              decoration: BoxDecoration(
-                color: badgeColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.black, width: 2),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2)),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.black, width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2)),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),

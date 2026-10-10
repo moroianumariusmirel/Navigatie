@@ -11,6 +11,8 @@ import '../storage/app_preferences_service.dart';
 import 'offline_tile_manager.dart';
 import 'offline_manifest_service.dart';
 import 'pmtiles_extractor.dart';
+import '../routing/graph/road_graph_builder.dart';
+import '../routing/routing_engine.dart';
 
 class OfflineDownloadService extends ChangeNotifier {
   static final OfflineDownloadService _instance = OfflineDownloadService._internal();
@@ -94,10 +96,15 @@ class OfflineDownloadService extends ChangeNotifier {
           if (localPath != null && File(localPath).existsSync()) {
             final fileSize = File(localPath).lengthSync();
             final actualSizeMb = double.parse((fileSize / (1024 * 1024)).toStringAsFixed(1));
+            final rgraphPath = localPath.replaceAll('.pmtiles', '.rgraph');
+            final hasRgraph = File(rgraphPath).existsSync();
+
             return region.copyWith(
               state: RegionDownloadState.ready,
               downloadProgress: 1.0,
               localPmtilesPath: localPath,
+              localRoutingGraphPath: hasRgraph ? rgraphPath : null,
+              isRoutingGraphReady: hasRgraph,
               downloadedBytes: fileSize,
               totalBytes: fileSize,
               sizeMb: actualSizeMb,
@@ -380,6 +387,9 @@ class OfflineDownloadService extends ChangeNotifier {
       _calculateTotalStorage();
       await OsmTileProviders.prewarm(targetFile.path);
       notifyListeners();
+
+      // Trigger asynchronous road graph generation for offline routing
+      unawaited(_buildRoutingGraphForRegion(regionId, targetFile));
     } catch (e) {
       debugPrint('[OfflineDownloadService] Download error for $regionId: $e');
       final humanError = _formatErrorMessage(e);
@@ -534,10 +544,22 @@ class OfflineDownloadService extends ChangeNotifier {
             }
           }
 
+          // Also delete associated .rgraph file if present
+          if (region.localRoutingGraphPath != null) {
+            final rgraphFile = File(region.localRoutingGraphPath!);
+            if (rgraphFile.existsSync()) {
+              try {
+                rgraphFile.deleteSync();
+              } catch (_) {}
+            }
+          }
+
           _updateRegionState(regionId, (r) => r.copyWith(
                 state: RegionDownloadState.notDownloaded,
                 downloadProgress: 0.0,
                 localPmtilesPath: null,
+                localRoutingGraphPath: null,
+                isRoutingGraphReady: false,
                 downloadedBytes: 0,
                 totalBytes: 0,
               ));
@@ -548,6 +570,32 @@ class OfflineDownloadService extends ChangeNotifier {
           return;
         }
       }
+    }
+  }
+
+  /// Builds the offline routing graph for a downloaded region in the background
+  Future<void> _buildRoutingGraphForRegion(String regionId, File pmtilesFile) async {
+    try {
+      final rgraphPath = pmtilesFile.path.replaceAll('.pmtiles', '.rgraph');
+      final rgraphFile = File(rgraphPath);
+
+      if (!rgraphFile.existsSync() || rgraphFile.lengthSync() < 100) {
+        debugPrint('[OfflineDownloadService] Building road routing graph for $regionId...');
+        await RoadGraphBuilder.buildAndSaveFromPmtiles(pmtilesFile, rgraphFile);
+        debugPrint('[OfflineDownloadService] Road routing graph ready for $regionId at $rgraphPath');
+      }
+
+      // Invalidate memory cache so router picks up newly built graph immediately
+      OnDeviceOfflineRouter.invalidateCache();
+
+      _updateRegionState(regionId, (r) => r.copyWith(
+            localRoutingGraphPath: rgraphPath,
+            isRoutingGraphReady: true,
+          ));
+      await _persistDownloadedRegistry();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[OfflineDownloadService] Road graph build error for $regionId: $e');
     }
   }
 
@@ -662,7 +710,12 @@ class OfflineDownloadService extends ChangeNotifier {
       for (final country in _countries) {
         for (final region in country.regions) {
           if (region.state == RegionDownloadState.ready && region.localPmtilesPath != null) {
-            registry.add(region.toJson());
+            final map = region.toJson();
+            if (region.localRoutingGraphPath != null) {
+              map['localRoutingGraphPath'] = region.localRoutingGraphPath;
+            }
+            map['isRoutingGraphReady'] = region.isRoutingGraphReady;
+            registry.add(map);
           }
         }
       }

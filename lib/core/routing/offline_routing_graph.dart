@@ -71,6 +71,7 @@ class RoutingEdge {
   });
 
   /// Cost factor based on activity profile (hiking vs cycling)
+  /// For Cycling: heavily favors tracks, gravel, and trails per user preference!
   double computeCost(OutdoorRoutingProfile profile) {
     double factor = 1.0;
     switch (profile) {
@@ -86,17 +87,17 @@ class RoutingEdge {
             factor = 1.0;
             break;
           case RoadType.track:
-            factor = 3.5;
+            factor = 1.8;
             break;
           case RoadType.path:
           case RoadType.footway:
-            factor = 5.0; // avoid unpaved footpaths on road bike
+            factor = 2.5;
             break;
           case RoadType.motorway:
             factor = 100.0; // prohibited
             break;
           default:
-            factor = 1.5;
+            factor = 1.2;
         }
         break;
 
@@ -106,15 +107,18 @@ class RoutingEdge {
           case RoadType.cycleway:
           case RoadType.track:
           case RoadType.path:
-            factor = 0.8; // prefer trails and tracks
+            factor = 0.7; // strongly prefer gravel tracks and outdoor trails!
             break;
+          case RoadType.footway:
           case RoadType.residential:
           case RoadType.tertiary:
-          case RoadType.secondary:
             factor = 1.0;
             break;
+          case RoadType.secondary:
+            factor = 1.4;
+            break;
           case RoadType.primary:
-            factor = 1.6;
+            factor = 2.2; // avoid busy paved highways
             break;
           case RoadType.motorway:
             factor = 100.0;
@@ -129,7 +133,7 @@ class RoutingEdge {
           case RoadType.path:
           case RoadType.footway:
           case RoadType.track:
-            factor = 0.7; // strongly prefer outdoor trails
+            factor = 0.7; // strongly prefer outdoor trails & tracks
             break;
           case RoadType.cycleway:
           case RoadType.residential:
@@ -141,7 +145,7 @@ class RoutingEdge {
             break;
           case RoadType.primary:
           case RoadType.motorway:
-            factor = 10.0; // avoid busy paved highways on foot
+            factor = 10.0; // avoid busy paved roads on foot
             break;
           default:
             factor = 1.0;
@@ -195,15 +199,85 @@ class RoutingEdge {
   }
 }
 
+/// Binary min-heap item for fast O(log N) A* open set
+class _AStarHeapNode {
+  final int nodeId;
+  final double priority;
+
+  const _AStarHeapNode(this.nodeId, this.priority);
+}
+
+class _AStarMinHeap {
+  final List<_AStarHeapNode> _data = [];
+
+  bool get isNotEmpty => _data.isNotEmpty;
+  bool get isEmpty => _data.isEmpty;
+  int get length => _data.length;
+
+  void push(int nodeId, double priority) {
+    _data.add(_AStarHeapNode(nodeId, priority));
+    _siftUp(_data.length - 1);
+  }
+
+  _AStarHeapNode pop() {
+    final top = _data.first;
+    final last = _data.removeLast();
+    if (_data.isNotEmpty) {
+      _data[0] = last;
+      _siftDown(0);
+    }
+    return top;
+  }
+
+  void _siftUp(int index) {
+    while (index > 0) {
+      final parent = (index - 1) >> 1;
+      if (_data[index].priority < _data[parent].priority) {
+        final tmp = _data[index];
+        _data[index] = _data[parent];
+        _data[parent] = tmp;
+        index = parent;
+      } else {
+        break;
+      }
+    }
+  }
+
+  void _siftDown(int index) {
+    final length = _data.length;
+    while (true) {
+      final left = (index << 1) + 1;
+      final right = left + 1;
+      int smallest = index;
+
+      if (left < length && _data[left].priority < _data[smallest].priority) {
+        smallest = left;
+      }
+      if (right < length && _data[right].priority < _data[smallest].priority) {
+        smallest = right;
+      }
+
+      if (smallest != index) {
+        final tmp = _data[index];
+        _data[index] = _data[smallest];
+        _data[smallest] = tmp;
+        index = smallest;
+      } else {
+        break;
+      }
+    }
+  }
+}
+
 /// A spatial road network graph for offline routing
 class OfflineRoutingGraph {
   final Map<int, RoutingNode> nodes = {};
   final Map<int, List<RoutingEdge>> adjacency = {};
   static const Distance _distCalc = Distance();
 
-  // Spatial grid index (0.02 deg ~ 2.2km buckets) for fast O(1) nearest-node snapping
+  // Spatial grid index (0.01 deg ~ 1.1km buckets) for fast O(1) nearest-node snapping
   final Map<String, List<int>> _spatialGrid = {};
-  static const double _gridSize = 0.02;
+  static const double _gridSize = 0.01;
 
   void addNode(RoutingNode node) {
     nodes[node.id] = node;
@@ -246,7 +320,7 @@ class OfflineRoutingGraph {
     RoutingNode? bestNode;
     double bestDist = double.infinity;
 
-    // Search 3x3 surrounding grid cells first
+    // Search 5x5 surrounding grid cells first (~5.5km radius)
     for (int dx = -2; dx <= 2; dx++) {
       for (int dy = -2; dy <= 2; dy++) {
         final key = '${startX + dx}:${startY + dy}';
@@ -270,7 +344,7 @@ class OfflineRoutingGraph {
       return bestNode;
     }
 
-    // Exhaustive fallback if far outside standard grid cells
+    // Exhaustive fallback if not found in grid
     for (final node in nodes.values) {
       final d = _distCalc.as(LengthUnit.Meter, point, node.toLatLng);
       if (d < bestDist) {
@@ -282,11 +356,12 @@ class OfflineRoutingGraph {
     return bestDist <= maxDistanceMeters ? bestNode : null;
   }
 
-  /// Finds the optimal path between startNodeId and targetNodeId using A*
+  /// Finds the optimal path between startNodeId and targetNodeId using fast binary-heap A*
   List<RoutingEdge>? findPathAStar({
     required int startNodeId,
     required int targetNodeId,
     required OutdoorRoutingProfile profile,
+    int maxIterations = 200000,
   }) {
     if (!nodes.containsKey(startNodeId) || !nodes.containsKey(targetNodeId)) {
       return null;
@@ -297,25 +372,19 @@ class OfflineRoutingGraph {
     }
 
     final targetNode = nodes[targetNodeId]!;
-
-    final openSet = <int>{startNodeId};
+    final heap = _AStarMinHeap();
     final cameFromEdge = <int, RoutingEdge>{};
     final gScore = <int, double>{startNodeId: 0.0};
-    final fScore = <int, double>{
-      startNodeId: _heuristic(nodes[startNodeId]!, targetNode),
-    };
+    final closedSet = <int>{};
 
-    while (openSet.isNotEmpty) {
-      // Find node with minimum fScore
-      int current = openSet.first;
-      double minF = fScore[current] ?? double.infinity;
-      for (final id in openSet) {
-        final f = fScore[id] ?? double.infinity;
-        if (f < minF) {
-          minF = f;
-          current = id;
-        }
-      }
+    final h0 = _heuristic(nodes[startNodeId]!, targetNode);
+    heap.push(startNodeId, h0);
+
+    int iterations = 0;
+    while (heap.isNotEmpty && iterations < maxIterations) {
+      iterations++;
+      final top = heap.pop();
+      final current = top.nodeId;
 
       if (current == targetNodeId) {
         // Reconstruct path
@@ -329,12 +398,17 @@ class OfflineRoutingGraph {
         return path.reversed.toList();
       }
 
-      openSet.remove(current);
-      final currentG = gScore[current] ?? double.infinity;
+      if (closedSet.contains(current)) continue;
+      closedSet.add(current);
 
-      final neighbors = adjacency[current] ?? const [];
+      final currentG = gScore[current] ?? double.infinity;
+      final neighbors = adjacency[current];
+      if (neighbors == null) continue;
+
       for (final edge in neighbors) {
         final neighbor = edge.targetId;
+        if (closedSet.contains(neighbor)) continue;
+
         final tentativeG = currentG + edge.computeCost(profile);
 
         if (tentativeG < (gScore[neighbor] ?? double.infinity)) {
@@ -342,14 +416,14 @@ class OfflineRoutingGraph {
           gScore[neighbor] = tentativeG;
           final neighborNode = nodes[neighbor];
           if (neighborNode != null) {
-            fScore[neighbor] = tentativeG + _heuristic(neighborNode, targetNode);
+            final f = tentativeG + _heuristic(neighborNode, targetNode);
+            heap.push(neighbor, f);
           }
-          openSet.add(neighbor);
         }
       }
     }
 
-    return null; // No path found
+    return null; // No path found within iteration limit
   }
 
   double _heuristic(RoutingNode a, RoutingNode b) {

@@ -8,6 +8,7 @@ import 'package:trailpulse/core/models/explore_mode.dart';
 import 'package:trailpulse/core/models/route_model.dart';
 import 'package:trailpulse/core/routing/gpx_parser.dart';
 import 'package:trailpulse/core/routing/osm_routing_service.dart';
+import 'package:trailpulse/core/routing/routing_engine.dart';
 import 'package:trailpulse/core/telemetry/telemetry_service.dart';
 import 'package:trailpulse/core/maps/osm_tile_providers.dart';
 import 'package:trailpulse/ui/planner/planner_screen.dart';
@@ -15,6 +16,12 @@ import 'package:trailpulse/ui/planner/planner_screen.dart';
 void main() {
   setUp(() {
     OsmTileProviders.overrideTileProvider = MockWhiteTileProvider();
+    OnDeviceOfflineRouter.invalidateCache();
+  });
+
+  tearDown(() {
+    OnDeviceOfflineRouter.invalidateCache();
+    OsmRoutingService.simulatedOfflineMode = false;
   });
 
   group('GpxParser Unit Tests', () {
@@ -269,6 +276,10 @@ void main() {
     });
 
     testWidgets('Tapping on map sets Start (A) and Arrival (B), manages stops, saves route, and starts in Cockpit', (WidgetTester tester) async {
+      OsmRoutingService.simulatedOfflineMode = true;
+      addTearDown(() {
+        OsmRoutingService.simulatedOfflineMode = false;
+      });
       final telemetryService = TelemetryService(autoStartSimulation: false);
       telemetryService.setSelectedTabIndex(1); // Start on Planner tab
 
@@ -299,6 +310,8 @@ void main() {
       // Tap 2: Set Arrival Point (B) -> triggers route calculation
       await tester.tapAt(tester.getCenter(mapFinder) + const Offset(40, 40));
       await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
 
       expect(find.text('ROUTE ACTIVE • TAP TO ADD STOPS (0 STOPS)'), findsOneWidget);
       expect(find.text('DETAILS'), findsOneWidget);
@@ -343,6 +356,10 @@ void main() {
     });
 
     testWidgets('RESET button removes currently loaded route from Planner map without affecting Cockpit activeRoute or saved offline routes', (WidgetTester tester) async {
+      OsmRoutingService.simulatedOfflineMode = true;
+      addTearDown(() {
+        OsmRoutingService.simulatedOfflineMode = false;
+      });
       final sampleRoute = RouteModel.sampleSchauinsland();
       final telemetryService = TelemetryService(
         initialRoute: sampleRoute,
@@ -397,6 +414,8 @@ void main() {
 
       await tester.tapAt(tester.getCenter(mapFinder) + const Offset(40, 40));
       await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
 
       expect(find.text('ROUTE ACTIVE • TAP TO ADD STOPS (0 STOPS)'), findsOneWidget);
       expect(find.byType(PolylineLayer), findsOneWidget);

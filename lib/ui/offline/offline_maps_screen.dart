@@ -536,6 +536,29 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (isReady) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            region.isRoutingGraphReady ? Icons.alt_route : Icons.hourglass_top,
+                            size: 11,
+                            color: region.isRoutingGraphReady ? AppColors.secondary : AppColors.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            region.isRoutingGraphReady
+                                ? 'OFFLINE ROUTING READY'
+                                : 'PREPARING ROAD GRAPH...',
+                            style: AppTypography.microCaps.copyWith(
+                              fontSize: 8,
+                              color: region.isRoutingGraphReady ? AppColors.secondary : AppColors.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

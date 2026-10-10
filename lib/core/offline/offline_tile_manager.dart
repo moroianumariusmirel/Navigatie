@@ -19,6 +19,8 @@ class OfflineMapRegion {
   final int downloadedBytes;
   final int totalBytes;
   final String? localPmtilesPath;
+  final String? localRoutingGraphPath;
+  final bool isRoutingGraphReady;
   final String downloadUrl;
   final bool hasCyclingProfiles;
   final bool hasHikingContours;
@@ -43,6 +45,8 @@ class OfflineMapRegion {
     this.downloadedBytes = 0,
     this.totalBytes = 0,
     this.localPmtilesPath,
+    this.localRoutingGraphPath,
+    this.isRoutingGraphReady = false,
     this.downloadUrl = '',
     this.hasCyclingProfiles = true,
     this.hasHikingContours = true,
@@ -70,6 +74,8 @@ class OfflineMapRegion {
     int? downloadedBytes,
     int? totalBytes,
     String? localPmtilesPath,
+    String? localRoutingGraphPath,
+    bool? isRoutingGraphReady,
     String? downloadUrl,
     int? maxZoom,
     String? errorMessage,
@@ -92,6 +98,8 @@ class OfflineMapRegion {
       downloadedBytes: downloadedBytes ?? this.downloadedBytes,
       totalBytes: totalBytes ?? this.totalBytes,
       localPmtilesPath: localPmtilesPath ?? this.localPmtilesPath,
+      localRoutingGraphPath: localRoutingGraphPath ?? this.localRoutingGraphPath,
+      isRoutingGraphReady: isRoutingGraphReady ?? this.isRoutingGraphReady,
       downloadUrl: downloadUrl ?? this.downloadUrl,
       hasCyclingProfiles: hasCyclingProfiles,
       hasHikingContours: hasHikingContours,
@@ -107,6 +115,8 @@ class OfflineMapRegion {
       'countryId': countryId,
       'state': state.name,
       'localPmtilesPath': localPmtilesPath,
+      'localRoutingGraphPath': localRoutingGraphPath,
+      'isRoutingGraphReady': isRoutingGraphReady,
       'sizeMb': sizeMb,
       'maxZoom': maxZoom,
     };

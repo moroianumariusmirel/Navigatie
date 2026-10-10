@@ -1,14 +1,16 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/route_model.dart';
 import '../models/activity_type.dart';
 import '../models/elevation_point.dart';
 import '../models/maneuver_instruction.dart';
 import '../models/waypoint_model.dart';
 import '../navigation/turn_navigation_engine.dart';
+import '../offline/offline_download_service.dart';
 import 'offline_routing_graph.dart';
-import 'regional_road_networks.dart';
+import 'graph/road_graph_builder.dart';
 
 enum OutdoorRoutingProfile {
   roadBike,
@@ -20,7 +22,8 @@ enum OutdoorRoutingProfile {
 OutdoorRoutingProfile activityToProfile(ActivityType activity) {
   switch (activity) {
     case ActivityType.cycling:
-      return OutdoorRoutingProfile.roadBike;
+      // Cycling profile defaults to gravel/tracks per user preference
+      return OutdoorRoutingProfile.gravelBike;
     case ActivityType.hiking:
       return OutdoorRoutingProfile.hiking;
   }
@@ -43,71 +46,118 @@ abstract class OfflineRoutingEngine {
 }
 
 /// On-Device Offline Router implementation
-/// Snaps tapped coordinates to regional road graphs and computes optimal routes along actual roads.
+/// Locates local downloaded .rgraph or .pmtiles road networks and computes optimal routes along actual roads.
 class OnDeviceOfflineRouter implements OfflineRoutingEngine {
   final String? offlineTilesDirectoryPath;
   static const Distance _distCalc = Distance();
 
-  // In-memory regional graph cache
+  // In-memory regional graph cache: regionKey -> OfflineRoutingGraph
   static final Map<String, OfflineRoutingGraph> _cachedGraphs = {};
 
   OnDeviceOfflineRouter({this.offlineTilesDirectoryPath});
 
-  /// Loads the most appropriate regional road network covering the requested area
-  OfflineRoutingGraph getRoutingGraphForArea(LatLng point) {
-    // Check Romania Muntenia & Danube Delta (Lat: ~43.6 to 45.6, Lon: ~24.5 to 29.8)
-    if (point.latitude >= 43.5 &&
-        point.latitude <= 45.6 &&
-        point.longitude >= 24.5 &&
-        point.longitude <= 30.0) {
-      return _cachedGraphs.putIfAbsent(
-        'muntenia',
-        () => RegionalRoadNetworks.getMunteniaNetwork(),
-      );
+  static void invalidateCache() {
+    _cachedGraphs.clear();
+  }
+
+  /// Locates or loads the offline routing graph covering the requested [point]
+  Future<OfflineRoutingGraph?> getRoutingGraphForArea(LatLng point) async {
+    // 1. Check in-memory cache first
+    for (final entry in _cachedGraphs.entries) {
+      final node = entry.value.findNearestNode(point, maxDistanceMeters: 5000);
+      if (node != null) {
+        return entry.value;
+      }
     }
 
-    // Check Transylvania / Bucegi-Brasov / Carpathians (Lat: ~45.2 to 47.5, Lon: ~22.5 to 26.5)
-    if (point.latitude >= 45.0 &&
-        point.latitude <= 47.8 &&
-        point.longitude >= 22.0 &&
-        point.longitude <= 26.5) {
-      return _cachedGraphs.putIfAbsent(
-        'transylvania',
-        () => RegionalRoadNetworks.getTransylvaniaNetwork(),
-      );
+    // 2. Query OfflineDownloadService for downloaded regions covering this coordinate
+    final service = OfflineDownloadService();
+    for (final country in service.countries) {
+      for (final region in country.regions) {
+        if (region.contains(point) && region.localPmtilesPath != null) {
+          final pmtilesFile = File(region.localPmtilesPath!);
+          if (pmtilesFile.existsSync()) {
+            final rgraphPath = region.localRoutingGraphPath ??
+                pmtilesFile.path.replaceAll('.pmtiles', '.rgraph');
+            final rgraphFile = File(rgraphPath);
+
+            if (rgraphFile.existsSync() && rgraphFile.lengthSync() > 100) {
+              try {
+                final jsonStr = await rgraphFile.readAsString();
+                final graph = OfflineRoutingGraph.fromJsonString(jsonStr);
+                _cachedGraphs[region.id] = graph;
+                return graph;
+              } catch (e) {
+                debugPrint('[OnDeviceOfflineRouter] Error loading graph from $rgraphPath: $e');
+              }
+            } else {
+              // Build on demand directly from downloaded PMTiles
+              try {
+                debugPrint('[OnDeviceOfflineRouter] Building on-demand road graph for ${region.id}...');
+                final graph = await RoadGraphBuilder.buildAndSaveFromPmtiles(
+                  pmtilesFile,
+                  rgraphFile,
+                );
+                _cachedGraphs[region.id] = graph;
+                return graph;
+              } catch (e) {
+                debugPrint('[OnDeviceOfflineRouter] Error building graph on-demand: $e');
+              }
+            }
+          }
+        }
+      }
     }
 
-    // Default to combined Romanian network
-    return _cachedGraphs.putIfAbsent('default_romania', () {
-      final muntenia = RegionalRoadNetworks.getMunteniaNetwork();
-      final transylvania = RegionalRoadNetworks.getTransylvaniaNetwork();
+    // 3. Fallback scan of offline directory (or test directory) for any existing .rgraph or .pmtiles files
+    Directory? mapsDir;
+    if (offlineTilesDirectoryPath != null) {
+      mapsDir = Directory(offlineTilesDirectoryPath!);
+    } else {
+      try {
+        final docDir = await getApplicationDocumentsDirectory().timeout(const Duration(milliseconds: 300));
+        mapsDir = Directory('${docDir.path}/offline_maps');
+      } catch (_) {
+        mapsDir = Directory.current;
+      }
+    }
 
-      final combined = OfflineRoutingGraph();
-      muntenia.nodes.forEach((k, v) => combined.addNode(v));
-      transylvania.nodes.forEach((k, v) => combined.addNode(v));
-
-      muntenia.adjacency.forEach((k, list) {
-        for (final edge in list) {
-          combined.addEdge(edge);
+    if (mapsDir.existsSync()) {
+      final files = mapsDir.listSync().whereType<File>();
+      for (final file in files) {
+        if (file.path.endsWith('.rgraph')) {
+          try {
+            final jsonStr = await file.readAsString();
+            final graph = OfflineRoutingGraph.fromJsonString(jsonStr);
+            final node = graph.findNearestNode(point, maxDistanceMeters: 10000);
+            if (node != null) {
+              _cachedGraphs[file.path] = graph;
+              return graph;
+            }
+          } catch (_) {}
         }
-      });
-      transylvania.adjacency.forEach((k, list) {
-        for (final edge in list) {
-          combined.addEdge(edge);
+      }
+
+      // Check local .pmtiles files in directory
+      for (final file in files) {
+        if (file.path.endsWith('.pmtiles') && !file.path.endsWith('.part')) {
+          final rgraphFile = File(file.path.replaceAll('.pmtiles', '.rgraph'));
+          if (rgraphFile.existsSync()) {
+            try {
+              final jsonStr = await rgraphFile.readAsString();
+              final graph = OfflineRoutingGraph.fromJsonString(jsonStr);
+              final node = graph.findNearestNode(point, maxDistanceMeters: 10000);
+              if (node != null) {
+                _cachedGraphs[file.path] = graph;
+                return graph;
+              }
+            } catch (_) {}
+          }
         }
-      });
+      }
+    }
 
-      // Link Predeal (205) in Muntenia to Predeal (604) in Transylvania to unite regions!
-      combined.addEdge(const RoutingEdge(
-        sourceId: 205,
-        targetId: 604,
-        distanceMeters: 50.0,
-        roadType: RoadType.primary,
-        name: 'DN1 Pasul Predeal (Conexiune Regionala)',
-      ));
-
-      return combined;
-    });
+    return null;
   }
 
   @override
@@ -119,7 +169,13 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
     String? customName,
   }) async {
     final allStops = <LatLng>[start, ...(waypoints ?? []), destination];
-    final graph = getRoutingGraphForArea(start);
+    final graph = await getRoutingGraphForArea(start) ?? await getRoutingGraphForArea(destination);
+
+    if (graph == null) {
+      throw StateError(
+        'No downloaded offline map or road network covers this location. Please download the offline region first.',
+      );
+    }
 
     final routeCoordinates = <LatLng>[];
     final routeEdges = <RoutingEdge>[];
@@ -129,60 +185,60 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
       final segStart = allStops[i];
       final segEnd = allStops[i + 1];
 
-      // Snap to nearest road network node
-      final startNode = graph.findNearestNode(segStart, maxDistanceMeters: 50000);
-      final endNode = graph.findNearestNode(segEnd, maxDistanceMeters: 50000);
+      // Snap to nearest road network node (within 3km)
+      final startNode = graph.findNearestNode(segStart, maxDistanceMeters: 5000);
+      final endNode = graph.findNearestNode(segEnd, maxDistanceMeters: 5000);
 
-      if (startNode != null && endNode != null) {
-        final pathEdges = graph.findPathAStar(
-          startNodeId: startNode.id,
-          targetNodeId: endNode.id,
-          profile: profile,
+      if (startNode == null || endNode == null) {
+        throw StateError(
+          'Could not find nearby roads to route along for these coordinates.',
         );
+      }
 
-        if (pathEdges != null && pathEdges.isNotEmpty) {
-          // Connect actual start point to snapped start node
-          if (routeCoordinates.isEmpty) {
-            routeCoordinates.add(segStart);
-          }
-          routeCoordinates.add(startNode.toLatLng);
+      final pathEdges = graph.findPathAStar(
+        startNodeId: startNode.id,
+        targetNodeId: endNode.id,
+        profile: profile,
+      );
 
-          for (final edge in pathEdges) {
-            routeEdges.add(edge);
-            totalDistanceM += edge.distanceMeters;
-
-            if (edge.geometry != null && edge.geometry!.isNotEmpty) {
-              routeCoordinates.addAll(edge.geometry!);
-            }
-            final targetNode = graph.nodes[edge.targetId];
-            if (targetNode != null) {
-              routeCoordinates.add(targetNode.toLatLng);
-            }
-          }
-
-          // Connect snapped end node to destination
-          routeCoordinates.add(segEnd);
-          totalDistanceM += _distCalc.as(LengthUnit.Meter, endNode.toLatLng, segEnd);
-        } else {
-          // A* returned no path or startNode == endNode
+      if (pathEdges == null || pathEdges.isEmpty) {
+        if (startNode.id == endNode.id) {
           routeCoordinates.add(segStart);
-          if (startNode.toLatLng != segStart) routeCoordinates.add(startNode.toLatLng);
-          if (endNode.toLatLng != segEnd) routeCoordinates.add(endNode.toLatLng);
+          routeCoordinates.add(startNode.toLatLng);
           routeCoordinates.add(segEnd);
           totalDistanceM += _distCalc.as(LengthUnit.Meter, segStart, segEnd);
+          continue;
         }
-      } else {
-        // Fallback straight segment if way outside coverage
-        routeCoordinates.add(segStart);
-        routeCoordinates.add(segEnd);
-        totalDistanceM += _distCalc.as(LengthUnit.Meter, segStart, segEnd);
+        throw StateError('No connecting road path found between the selected points.');
       }
+
+      // Add segment geometries
+      if (routeCoordinates.isEmpty) {
+        routeCoordinates.add(segStart);
+      }
+      routeCoordinates.add(startNode.toLatLng);
+
+      for (final edge in pathEdges) {
+        routeEdges.add(edge);
+        totalDistanceM += edge.distanceMeters;
+
+        if (edge.geometry != null && edge.geometry!.isNotEmpty) {
+          routeCoordinates.addAll(edge.geometry!);
+        }
+        final targetNode = graph.nodes[edge.targetId];
+        if (targetNode != null) {
+          routeCoordinates.add(targetNode.toLatLng);
+        }
+      }
+
+      routeCoordinates.add(segEnd);
+      totalDistanceM += _distCalc.as(LengthUnit.Meter, endNode.toLatLng, segEnd);
     }
 
     final totalKm = double.parse((totalDistanceM / 1000.0).toStringAsFixed(1));
     final activity = profile == OutdoorRoutingProfile.hiking ? ActivityType.hiking : ActivityType.cycling;
 
-    final durationHours = activity == ActivityType.cycling ? totalKm / 19.5 : totalKm / 4.0;
+    final durationHours = activity == ActivityType.cycling ? totalKm / 18.0 : totalKm / 4.0;
     final h = durationHours.floor();
     final m = ((durationHours - h) * 60).round();
 
@@ -202,7 +258,7 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
       if (curr.elevationM < minEle) minEle = curr.elevationM;
     }
 
-    // Build maneuvers along the road path
+    // Build turn maneuvers along the road path
     final maneuvers = <ManeuverInstruction>[];
     double accumulatedM = 0.0;
     int stepIdx = 0;
@@ -210,7 +266,7 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
     for (final edge in routeEdges) {
       accumulatedM += edge.distanceMeters;
       final node = graph.nodes[edge.sourceId];
-      final roadName = edge.name ?? (activity == ActivityType.cycling ? 'Cycle Route' : 'Trail Path');
+      final roadName = edge.name ?? (activity == ActivityType.cycling ? 'Trail Track' : 'Footpath');
 
       maneuvers.add(ManeuverInstruction(
         distanceToManeuverMeters: edge.distanceMeters.toInt(),
@@ -220,12 +276,11 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
         maneuverType: ManeuverType.straight,
         instructionTitle: 'Follow $roadName',
         trailName: roadName,
-        surfaceType: edge.roadType == RoadType.track || edge.roadType == RoadType.path ? 'Gravel / Dirt' : 'Asphalt Road',
+        surfaceType: edge.roadType == RoadType.track || edge.roadType == RoadType.path ? 'Gravel / Dirt Track' : 'Paved Road',
         apexElevationM: node?.elevationM ?? 850.0,
       ));
     }
 
-    // Fallback maneuvers if no edges
     final finalManeuvers = maneuvers.isNotEmpty
         ? maneuvers
         : TurnNavigationEngine.extractManeuversFromCoordinates(
@@ -257,10 +312,10 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
       maxElevationM: maxEle,
       minElevationM: minEle,
       estimatedDuration: '${h}h ${m}m',
-      difficultyRating: activity == ActivityType.cycling ? 'S1 • Offline Road Navigation' : 'T2 • Offline Trail Navigation',
+      difficultyRating: activity == ActivityType.cycling ? 'Gravel / Trail Route' : 'Hiking Trail',
       surfaceBreakdown: activity == ActivityType.cycling
-          ? const {'Asphalt': 0.70, 'Gravel': 0.25, 'Path': 0.05}
-          : const {'Trail': 0.65, 'Gravel': 0.25, 'Asphalt': 0.10},
+          ? const {'Gravel / Dirt': 0.70, 'Asphalt': 0.20, 'Path': 0.10}
+          : const {'Trail': 0.75, 'Gravel': 0.15, 'Asphalt': 0.10},
       elevationProfile: elevationProfile,
       maneuvers: finalManeuvers,
       waypoints: waypointsList,
