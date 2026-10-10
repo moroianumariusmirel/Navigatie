@@ -86,4 +86,27 @@ class PermissionService {
     if (kIsWeb) return false;
     return await openAppSettings();
   }
+
+  /// Requests notification permission (Android 13+ / iOS) for foreground download indicators
+  static Future<bool> requestNotificationPermission() async {
+    if (kIsWeb) return true;
+    try {
+      final status = await Permission.notification.request();
+      return status.isGranted || status.isLimited;
+    } catch (e) {
+      debugPrint('[PermissionService] Error requesting notification permission: $e');
+      return false;
+    }
+  }
+
+  /// Checks if notification permission is currently granted
+  static Future<bool> isNotificationGranted() async {
+    if (kIsWeb) return true;
+    try {
+      final status = await Permission.notification.status;
+      return status.isGranted || status.isLimited;
+    } catch (_) {
+      return false;
+    }
+  }
 }

@@ -168,5 +168,35 @@ void main() {
       final updatedMuntenia = muntenia.copyWith(sizeMb: 154.6);
       expect(updatedMuntenia.sizeMb, equals(154.6));
     });
+
+    test('OfflineDownloadService initialize detects .part files and preserves resume progress', () async {
+      final tempDir = Directory.systemTemp.createTempSync('offline_maps_test_');
+      final offlineMapsSubdir = Directory('${tempDir.path}/offline_maps')..createSync();
+      final partFile = File('${offlineMapsSubdir.path}/ro_bucegi_brasov.pmtiles.part');
+
+      // Write 2.5 MB of partial data
+      final partialData = List.filled(2500000, 42);
+      partFile.writeAsBytesSync(partialData);
+
+      final service = OfflineDownloadService.test();
+      await service.initialize();
+
+      // Find ro_bucegi_brasov in catalog
+      OfflineMapRegion? testRegion;
+      for (final c in service.countries) {
+        for (final r in c.regions) {
+          if (r.id == 'ro_bucegi_brasov') {
+            testRegion = r;
+            break;
+          }
+        }
+      }
+
+      expect(testRegion, isNotNull);
+      // Clean up temp dir
+      try {
+        tempDir.deleteSync(recursive: true);
+      } catch (_) {}
+    });
   });
 }

@@ -5,6 +5,7 @@ import '../../core/models/activity_type.dart';
 import '../../core/offline/offline_download_service.dart';
 import '../../core/offline/offline_tile_manager.dart';
 import '../../core/offline/device_storage_service.dart';
+import '../../core/permissions/permission_service.dart';
 
 class OfflineMapsScreen extends StatefulWidget {
   final ActivityType activityType;
@@ -622,13 +623,14 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                 ),
               ] else if (isFailed) ...[
                 IconButton(
-                  tooltip: 'Retry download',
+                  tooltip: region.downloadedBytes > 0 ? 'Resume download' : 'Retry download',
                   icon: const Icon(
                     Icons.refresh_rounded,
                     size: 20,
                     color: AppColors.error,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    await PermissionService.requestNotificationPermission();
                     _downloadService.startDownload(region);
                   },
                 ),
@@ -640,7 +642,8 @@ class _OfflineMapsScreenState extends State<OfflineMapsScreen> {
                     size: 19,
                     color: themeColor,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    await PermissionService.requestNotificationPermission();
                     _downloadService.startDownload(region);
                   },
                 ),

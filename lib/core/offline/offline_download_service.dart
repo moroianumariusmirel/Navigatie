@@ -11,6 +11,7 @@ import '../storage/app_preferences_service.dart';
 import 'offline_tile_manager.dart';
 import 'offline_manifest_service.dart';
 import 'pmtiles_extractor.dart';
+import 'download_foreground_bridge.dart';
 import '../routing/graph/road_graph_builder.dart';
 import '../routing/routing_engine.dart';
 
@@ -64,12 +65,21 @@ class OfflineDownloadService extends ChangeNotifier {
         }
       }
 
-      // Check on-disk pmtiles files that match region IDs or aliases
+      // Check on-disk pmtiles and .part files that match region IDs or aliases
+      final Map<String, int> partialFiles = {};
       if (baseDir.existsSync()) {
         final onDiskFiles = baseDir.listSync().whereType<File>();
         for (final file in onDiskFiles) {
           final filename = file.uri.pathSegments.last;
-          if (filename.endsWith('.pmtiles') && !filename.endsWith('.part')) {
+          if (filename.endsWith('.pmtiles.part')) {
+            final rawId = filename.substring(0, filename.length - 13);
+            partialFiles[rawId] = file.lengthSync();
+            if (rawId.startsWith('romania_')) {
+              partialFiles['ro_${rawId.substring(8)}'] = file.lengthSync();
+            } else if (rawId.startsWith('ro_')) {
+              partialFiles['romania_${rawId.substring(3)}'] = file.lengthSync();
+            }
+          } else if (filename.endsWith('.pmtiles')) {
             if (isValidPmtilesFile(file)) {
               final rawId = filename.substring(0, filename.length - 8);
               registeredPaths[rawId] = file.path;
@@ -110,6 +120,25 @@ class OfflineDownloadService extends ChangeNotifier {
               sizeMb: actualSizeMb,
             );
           }
+
+          // Check if partial download exists on disk
+          final partialBytes = partialFiles[region.id] ??
+              partialFiles['ro_${region.id}'] ??
+              (region.id.startsWith('ro_') ? partialFiles['romania_${region.id.substring(3)}'] : null);
+          if (partialBytes != null && partialBytes > 0) {
+            final targetTotal = region.totalBytes > 0
+                ? region.totalBytes
+                : (region.sizeMb * 1024 * 1024).round();
+            final progress = (partialBytes / targetTotal).clamp(0.0, 0.99);
+            return region.copyWith(
+              state: RegionDownloadState.failed,
+              downloadProgress: progress,
+              downloadedBytes: partialBytes,
+              totalBytes: targetTotal,
+              errorMessage: 'Download interrupted. Tap Retry to resume.',
+            );
+          }
+
           return region;
         }).toList();
 
@@ -322,6 +351,13 @@ class OfflineDownloadService extends ChangeNotifier {
           errorMessage: null,
         ));
 
+    // Start Android Foreground Service notification
+    unawaited(DownloadForegroundBridge.start(
+      title: 'Downloading ${targetRegion.name}',
+      progressPercent: 2,
+      text: 'Connecting to map server...',
+    ));
+
     try {
       final mapsDir = await _getOfflineMapsDirectory();
       if (!mapsDir.existsSync()) {
@@ -344,6 +380,12 @@ class OfflineDownloadService extends ChangeNotifier {
         try {
           await _realDownload(targetRegion, tempFile, targetFile);
         } catch (e) {
+          final isNetworkDrop = _isNetworkDropError(e);
+          if (isNetworkDrop) {
+            // Screen lock or transient network drop: DO NOT fallback to extractor,
+            // preserve .part file so user can tap Resume!
+            rethrow;
+          }
           debugPrint(
               '[OfflineDownloadService] Direct download failed ($e), falling back to in-app extractor');
           if (tempFile.existsSync()) tempFile.deleteSync();
@@ -393,16 +435,48 @@ class OfflineDownloadService extends ChangeNotifier {
     } catch (e) {
       debugPrint('[OfflineDownloadService] Download error for $regionId: $e');
       final humanError = _formatErrorMessage(e);
+
+      // Check if partial file survived on disk so we do NOT wipe progress to 0%
+      int partialBytes = 0;
+      double preservedProgress = 0.0;
+      try {
+        final mapsDir = await _getOfflineMapsDirectory();
+        final tempFile = File('${mapsDir.path}/$regionId.pmtiles.part');
+        if (tempFile.existsSync()) {
+          partialBytes = tempFile.lengthSync();
+          final targetTotal = targetRegion.totalBytes > 0
+              ? targetRegion.totalBytes
+              : (targetRegion.sizeMb * 1024 * 1024).round();
+          if (targetTotal > 0) {
+            preservedProgress = (partialBytes / targetTotal).clamp(0.0, 0.99);
+          }
+        }
+      } catch (_) {}
+
       _updateRegionState(regionId, (r) => r.copyWith(
             state: RegionDownloadState.failed,
-            downloadProgress: 0.0,
+            downloadProgress: preservedProgress > 0 ? preservedProgress : 0.0,
+            downloadedBytes: partialBytes > 0 ? partialBytes : r.downloadedBytes,
             errorMessage: humanError,
           ));
       notifyListeners();
     } finally {
       _cancelTokens.remove(regionId);
       _activeClients.remove(regionId);
+      unawaited(DownloadForegroundBridge.stop());
     }
+  }
+
+  bool _isNetworkDropError(dynamic error) {
+    final msg = error.toString().toLowerCase();
+    return error is SocketException ||
+        msg.contains('socketexception') ||
+        msg.contains('connection reset') ||
+        msg.contains('clientexception') ||
+        msg.contains('failed host lookup') ||
+        msg.contains('timeoutexception') ||
+        msg.contains('timed out') ||
+        msg.contains('connection closed');
   }
 
   String _formatErrorMessage(dynamic error) {
@@ -462,35 +536,126 @@ class OfflineDownloadService extends ChangeNotifier {
     final client = http.Client();
     _activeClients[regionId] = client;
 
+    // Check if partial download exists on disk to resume
+    int existingBytes = 0;
+    if (tempFile.existsSync()) {
+      existingBytes = tempFile.lengthSync();
+    }
+
     final request = http.Request('GET', Uri.parse(region.downloadUrl));
+    if (existingBytes > 0) {
+      request.headers['Range'] = 'bytes=$existingBytes-';
+      debugPrint('[OfflineDownloadService] Requesting resume for $regionId from byte $existingBytes');
+    }
+
     final response = await client.send(request);
 
-    if (response.statusCode >= 400) {
+    if (response.statusCode >= 400 && response.statusCode != 416) {
       throw Exception('HTTP error ${response.statusCode} downloading ${region.downloadUrl}');
     }
 
-    final totalBytes = response.contentLength ?? (region.sizeMb * 1024 * 1024).round();
-    int receivedBytes = 0;
-
-    final sink = tempFile.openWrite();
-    await for (final chunk in response.stream) {
-      if (_cancelTokens[regionId] == true) {
-        await sink.close();
-        client.close();
+    // 416 Range Not Satisfiable: file might already be complete or URL changed
+    if (response.statusCode == 416) {
+      if (isValidPmtilesFile(tempFile)) {
+        if (targetFile.existsSync()) targetFile.deleteSync();
+        await tempFile.rename(targetFile.path);
         return;
+      } else {
+        // Reset and restart
+        if (tempFile.existsSync()) tempFile.deleteSync();
+        existingBytes = 0;
+        final retryReq = http.Request('GET', Uri.parse(region.downloadUrl));
+        final retryRes = await client.send(retryReq);
+        if (retryRes.statusCode >= 400) {
+          throw Exception('HTTP error ${retryRes.statusCode} downloading ${region.downloadUrl}');
+        }
+        return _consumeDownloadStream(region, tempFile, targetFile, retryRes, 0, client);
       }
-      sink.add(chunk);
-      receivedBytes += chunk.length;
-      final progress = (receivedBytes / totalBytes).clamp(0.0, 1.0);
+    }
 
-      _updateRegionState(regionId, (r) => r.copyWith(
+    final isPartial = response.statusCode == 206;
+    if (!isPartial && existingBytes > 0) {
+      // Server did not honor range; reset partial file
+      existingBytes = 0;
+      if (tempFile.existsSync()) tempFile.deleteSync();
+    }
+
+    await _consumeDownloadStream(region, tempFile, targetFile, response, existingBytes, client);
+  }
+
+  Future<void> _consumeDownloadStream(
+    OfflineMapRegion region,
+    File tempFile,
+    File targetFile,
+    http.StreamedResponse response,
+    int initialBytes,
+    http.Client client,
+  ) async {
+    final regionId = region.id;
+    final contentLength = response.contentLength;
+    final totalBytes = (contentLength != null && contentLength > 0)
+        ? (initialBytes + contentLength)
+        : (region.totalBytes > 0 ? region.totalBytes : (region.sizeMb * 1024 * 1024).round());
+
+    int receivedBytes = initialBytes;
+    final sink = tempFile.openWrite(mode: initialBytes > 0 ? FileMode.append : FileMode.write);
+    int bytesSinceLastFlush = 0;
+    int lastForegroundNotificationPercent = -1;
+
+    try {
+      await for (final chunk in response.stream) {
+        if (_cancelTokens[regionId] == true) {
+          await sink.flush();
+          await sink.close();
+          client.close();
+          return;
+        }
+
+        sink.add(chunk);
+        receivedBytes += chunk.length;
+        bytesSinceLastFlush += chunk.length;
+
+        // Periodic disk flush every 2 MB to guarantee progress on lock/crash
+        if (bytesSinceLastFlush >= 2 * 1024 * 1024) {
+          await sink.flush();
+          bytesSinceLastFlush = 0;
+        }
+
+        final progress = (receivedBytes / totalBytes).clamp(0.0, 1.0);
+        final percent = (progress * 100).toInt();
+
+        // Update Android Foreground Notification every 2%
+        if (percent != lastForegroundNotificationPercent && (percent - lastForegroundNotificationPercent).abs() >= 2) {
+          lastForegroundNotificationPercent = percent;
+          final downloadedMb = (receivedBytes / (1024 * 1024)).toStringAsFixed(1);
+          final totalMb = (totalBytes / (1024 * 1024)).toStringAsFixed(1);
+          unawaited(DownloadForegroundBridge.update(
+            title: 'Downloading ${region.name}',
+            progressPercent: percent,
+            text: '$downloadedMb MB / $totalMb MB ($percent%)',
+          ));
+        }
+
+        _updateRegionState(
+          regionId,
+          (r) => r.copyWith(
             downloadProgress: progress,
             downloadedBytes: receivedBytes,
             totalBytes: totalBytes,
-          ));
+          ),
+          forceNotify: false,
+        );
+      }
+
+      await sink.flush();
+    } finally {
+      await sink.close();
+      client.close();
     }
-    await sink.close();
-    client.close();
+
+    if (_cancelTokens[regionId] == true) {
+      return;
+    }
 
     if (targetFile.existsSync()) targetFile.deleteSync();
     await tempFile.rename(targetFile.path);
@@ -684,7 +849,13 @@ class OfflineDownloadService extends ChangeNotifier {
     }
   }
 
-  void _updateRegionState(String regionId, OfflineMapRegion Function(OfflineMapRegion) updater) {
+  final Map<String, int> _lastNotifyTimestamp = {};
+
+  void _updateRegionState(
+    String regionId,
+    OfflineMapRegion Function(OfflineMapRegion) updater, {
+    bool forceNotify = true,
+  }) {
     _countries = _countries.map((country) {
       final updated = country.regions.map((region) {
         if (region.id == regionId) {
@@ -701,7 +872,14 @@ class OfflineDownloadService extends ChangeNotifier {
         regions: updated,
       );
     }).toList();
-    notifyListeners();
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final last = _lastNotifyTimestamp[regionId] ?? 0;
+
+    if (forceNotify || (now - last > 300)) {
+      _lastNotifyTimestamp[regionId] = now;
+      notifyListeners();
+    }
   }
 
   Future<void> _persistDownloadedRegistry() async {
