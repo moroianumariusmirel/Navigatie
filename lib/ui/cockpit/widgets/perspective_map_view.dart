@@ -24,6 +24,9 @@ class PerspectiveMapView extends StatefulWidget {
   final NavigationState navigationState;
   final VoidCallback? onPlayPause;
   final VoidCallback? onStop;
+  final bool isRecording;
+  final VoidCallback? onToggleRecording;
+  final List<LatLng> recordedBreadcrumbs;
 
   const PerspectiveMapView({
     super.key,
@@ -36,6 +39,9 @@ class PerspectiveMapView extends StatefulWidget {
     this.navigationState = NavigationState.stopped,
     this.onPlayPause,
     this.onStop,
+    this.isRecording = false,
+    this.onToggleRecording,
+    this.recordedBreadcrumbs = const [],
   });
 
   @override
@@ -137,6 +143,23 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                           points: widget.route!.coordinates,
                           strokeWidth: 4.0,
                           color: primaryTheme,
+                        ),
+                      ],
+                    ),
+
+                  // Live Recorded Breadcrumbs (when tracking free walk or ride)
+                  if (widget.recordedBreadcrumbs.length >= 2)
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: widget.recordedBreadcrumbs,
+                          strokeWidth: 6.0,
+                          color: AppColors.error.withOpacity(0.4),
+                        ),
+                        Polyline(
+                          points: widget.recordedBreadcrumbs,
+                          strokeWidth: 3.0,
+                          color: AppColors.error,
                         ),
                       ],
                     ),
@@ -252,65 +275,21 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
             ),
           ),
 
-          // 3. PB Ghost Badge
-          Positioned(
-            top: 152,
-            right: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHigh.withOpacity(0.92),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x66000000),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.secondaryFixed,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'PB GHOST (${widget.telemetry.pbGhostGapSeconds}s)',
-                    style: AppTypography.labelCaps.copyWith(
-                      fontSize: 9,
-                      color: AppColors.secondaryFixed,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
 
-          // 4. BOTTOM LEFT: Interactive Mode Switch (Live OSM vs 3D Radar)
+          // 3. BOTTOM LEFT: Live Track Recording Toggle Button
           Positioned(
             bottom: 12,
             left: 12,
             child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _showLiveOsm = !_showLiveOsm;
-                });
-              },
+              onTap: widget.onToggleRecording,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceContainerLowest.withOpacity(0.94),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: primaryTheme.withOpacity(0.5),
-                    width: 1,
+                    color: widget.isRecording ? AppColors.error : AppColors.outlineVariant.withOpacity(0.5),
+                    width: 1.2,
                   ),
                   boxShadow: const [
                     BoxShadow(
@@ -323,30 +302,28 @@ class _PerspectiveMapViewState extends State<PerspectiveMapView>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 7,
-                      height: 7,
+                      width: 8,
+                      height: 8,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: primaryTheme,
+                        color: widget.isRecording ? AppColors.error : AppColors.outline,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      _showLiveOsm
-                          ? (OsmTileProviders.getActiveOfflineRegion(userPos) != null
-                              ? '💾 OFFLINE VECTOR (LOCAL)'
-                              : (isCycling ? '🗺️ CYCLOSM LIVE' : '🥾 OPENTOPOMAP LIVE'))
-                          : '📐 3D PERSPECTIVE',
+                      widget.isRecording ? 'RECORDING' : 'RECORD TRACK',
                       style: AppTypography.microCaps.copyWith(
-                        color: OsmTileProviders.getActiveOfflineRegion(userPos) != null
-                            ? primaryTheme
-                            : AppColors.primary,
+                        color: widget.isRecording ? AppColors.error : AppColors.onSurface,
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.sync, size: 11, color: AppColors.onSurfaceVariant),
+                    Icon(
+                      widget.isRecording ? Icons.fiber_manual_record : Icons.radio_button_checked,
+                      size: 13,
+                      color: widget.isRecording ? AppColors.error : AppColors.onSurfaceVariant,
+                    ),
                   ],
                 ),
               ),

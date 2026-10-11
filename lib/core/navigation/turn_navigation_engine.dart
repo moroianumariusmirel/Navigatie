@@ -47,6 +47,16 @@ class TurnNavigationEngine {
     _audioService.dispose();
   }
 
+  /// Clears active maneuvers and stops audio guidance
+  void resetRoute() {
+    _currentIndex = 0;
+    _wasOffRoute = false;
+    _hasArrived = false;
+    _maneuvers = [];
+    _audioService.stopAll();
+    _enabled = false;
+  }
+
   /// Initializes or resets the engine with a given route.
   /// If the route has no detailed maneuvers, automatically extracts them from coordinates.
   void initRoute(RouteModel route) {

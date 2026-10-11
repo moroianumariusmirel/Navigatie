@@ -115,9 +115,16 @@ class PmtilesRoadExtractor {
 
     try {
       final header = archive.header;
+      final maxZoom = header.maxZoom;
+      if (maxZoom < 12) {
+        throw StateError(
+          'Map region max zoom ($maxZoom) is too low for street-level routing; zoom >= 12 required.',
+        );
+      }
+      final targetZoom = math.min(14, maxZoom);
       final leafOffset = header.leafDirectoriesOffset;
 
-      // Collect all tile IDs at zoom 14 by traversing root and any leaf directories
+      // Collect all tile IDs at target zoom by traversing root and any leaf directories
       final targetTileIds = <int>{};
       final dirQueue = <pmtiles_dir.Directory>[archive.root];
 
@@ -141,7 +148,7 @@ class PmtilesRoadExtractor {
               for (int i = 0; i < runLength; i++) {
                 final id = entry.tileId + i;
                 final zxy = ZXY.fromTileId(id);
-                if (zxy.z == 14) {
+                if (zxy.z == targetZoom) {
                   targetTileIds.add(id);
                 }
               }

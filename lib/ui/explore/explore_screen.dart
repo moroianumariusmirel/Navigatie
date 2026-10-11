@@ -118,37 +118,65 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    final telemetry =
-                        Provider.of<TelemetryService>(context, listen: false);
-                    telemetry.startNavigation(route: route);
-                    Navigator.pop(ctx);
-                    telemetry.setSelectedTabIndex(2); // Switch to Cockpit HUD
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: AppColors.surfaceContainerHighest,
-                        content: Text(
-                          'ACTIVATED IN COCKPIT HUD: ${route.name}',
-                          style: AppTypography.bodySm
-                              .copyWith(color: primaryTheme),
-                        ),
+              Consumer<TelemetryService>(
+                builder: (context, telemetry, _) {
+                  final isCurrentActive = telemetry.activeRoute?.id == route.id;
+                  return SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (isCurrentActive) {
+                          telemetry.clearActiveRoute();
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: AppColors.surfaceContainerHighest,
+                              content: Text(
+                                'UNLOADED FROM COCKPIT HUD: ${route.name}',
+                                style: AppTypography.bodySm
+                                    .copyWith(color: AppColors.error),
+                              ),
+                            ),
+                          );
+                        } else {
+                          telemetry.startNavigation(route: route);
+                          Navigator.pop(ctx);
+                          telemetry.setSelectedTabIndex(2); // Switch to Cockpit HUD
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: AppColors.surfaceContainerHighest,
+                              content: Text(
+                                'ACTIVATED IN COCKPIT HUD: ${route.name}',
+                                style: AppTypography.bodySm
+                                    .copyWith(color: primaryTheme),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: Icon(
+                        isCurrentActive ? Icons.eject_outlined : Icons.navigation,
+                        size: 18,
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.navigation, size: 18),
-                  label: const Text('LOAD INTO COCKPIT HUD'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryTheme,
-                    foregroundColor:
-                        isCycling ? AppColors.onPrimary : AppColors.onSecondary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
+                      label: Text(
+                        isCurrentActive
+                            ? 'UNLOAD FROM COCKPIT HUD'
+                            : 'LOAD INTO COCKPIT HUD',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isCurrentActive
+                            ? AppColors.errorContainer
+                            : primaryTheme,
+                        foregroundColor: isCurrentActive
+                            ? AppColors.error
+                            : (isCycling ? AppColors.onPrimary : AppColors.onSecondary),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -555,34 +583,51 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                         ),
                                         const SizedBox(width: 8),
 
-                                        // Activate Route Button
+                                        // Activate / Unload Route Button
                                         Expanded(
                                           child: ElevatedButton.icon(
                                             onPressed: () {
-                                              telemetry
-                                                  .updateActiveRoute(route);
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  backgroundColor: AppColors
-                                                      .surfaceContainerHighest,
-                                                  content: Text(
-                                                      'Loaded ${route.name} into Cockpit HUD!'),
-                                                ),
-                                              );
+                                              if (isCurrentActive) {
+                                                telemetry.clearActiveRoute();
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                    backgroundColor: AppColors
+                                                        .surfaceContainerHighest,
+                                                    content: Text(
+                                                        'Unloaded ${route.name} from Cockpit HUD'),
+                                                  ),
+                                                );
+                                              } else {
+                                                telemetry
+                                                    .updateActiveRoute(route);
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                    backgroundColor: AppColors
+                                                        .surfaceContainerHighest,
+                                                    content: Text(
+                                                        'Loaded ${route.name} into Cockpit HUD!'),
+                                                  ),
+                                                );
+                                              }
                                             },
-                                            icon: const Icon(Icons.play_arrow,
+                                            icon: Icon(
+                                                isCurrentActive
+                                                    ? Icons.eject_outlined
+                                                    : Icons.play_arrow,
                                                 size: 14),
                                             label: Text(isCurrentActive
-                                                ? 'LOADED IN COCKPIT'
+                                                ? 'UNLOAD FROM COCKPIT'
                                                 : 'ACTIVATE'),
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: isCurrentActive
-                                                  ? AppColors.surfaceBright
+                                                  ? AppColors.errorContainer
+                                                      .withOpacity(0.35)
                                                   : primaryTheme
                                                       .withOpacity(0.2),
                                               foregroundColor: isCurrentActive
-                                                  ? AppColors.primary
+                                                  ? AppColors.error
                                                   : primaryTheme,
                                               elevation: 0,
                                               padding:

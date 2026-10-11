@@ -94,8 +94,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
       }
     } catch (e) {
       if (mounted) {
+        String msg = e.toString();
+        if (msg.startsWith('Bad state: ')) {
+          msg = msg.substring('Bad state: '.length);
+        } else if (msg.startsWith('Exception: ')) {
+          msg = msg.substring('Exception: '.length);
+        }
         setState(() {
-          _errorMessage = 'Calculation failed: $e';
+          _errorMessage = msg;
           _isCalculating = false;
         });
       }

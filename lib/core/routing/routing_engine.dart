@@ -54,10 +54,14 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
   // In-memory regional graph cache: regionKey -> OfflineRoutingGraph
   static final Map<String, OfflineRoutingGraph> _cachedGraphs = {};
 
+  // Regions that cannot be used for routing (e.g. maxZoom < 12, extraction failed, no roads)
+  static final Set<String> _unroutableRegions = {};
+
   OnDeviceOfflineRouter({this.offlineTilesDirectoryPath});
 
   static void invalidateCache() {
     _cachedGraphs.clear();
+    _unroutableRegions.clear();
   }
 
   /// Locates or loads the offline routing graph covering the requested [point]
@@ -72,59 +76,94 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
 
     // 2. Query OfflineDownloadService for downloaded regions covering this coordinate
     final service = OfflineDownloadService();
+    final candidateRegions = <dynamic>[];
+
     for (final country in service.countries) {
       for (final region in country.regions) {
-        if (region.contains(point) && region.localPmtilesPath != null) {
-          final pmtilesFile = File(region.localPmtilesPath!);
-          if (pmtilesFile.existsSync()) {
-            final rgraphPath = region.localRoutingGraphPath ??
-                pmtilesFile.path.replaceAll('.pmtiles', '.rgraph');
-            final rgraphFile = File(rgraphPath);
+        if (region.contains(point) &&
+            region.localPmtilesPath != null &&
+            !_unroutableRegions.contains(region.id)) {
+          candidateRegions.add(region);
+        }
+      }
+    }
 
-            if (rgraphFile.existsSync() && rgraphFile.lengthSync() > 100) {
-              try {
-                final jsonStr = await rgraphFile.readAsString();
-                final graph = OfflineRoutingGraph.fromJsonString(jsonStr);
-                _cachedGraphs[region.id] = graph;
-                return graph;
-              } catch (e) {
-                debugPrint('[OnDeviceOfflineRouter] Error loading graph from $rgraphPath: $e');
-              }
-            } else {
-              // Build on demand directly from downloaded PMTiles
-              try {
-                debugPrint('[OnDeviceOfflineRouter] Building on-demand road graph for ${region.id}...');
-                final graph = await RoadGraphBuilder.buildAndSaveFromPmtiles(
-                  pmtilesFile,
-                  rgraphFile,
-                );
-                _cachedGraphs[region.id] = graph;
-                return graph;
-              } catch (e) {
-                debugPrint('[OnDeviceOfflineRouter] Error building graph on-demand: $e');
-              }
-            }
+    // Sort candidates:
+    // a. Sub-regions before country master packs
+    // b. Higher maxZoom first (detailed routing packs have maxZoom >= 14)
+    // c. Smaller bounding box area first (more specific region)
+    candidateRegions.sort((a, b) {
+      final aIsMaster = a.isCountryMaster == true ? 1 : 0;
+      final bIsMaster = b.isCountryMaster == true ? 1 : 0;
+      if (aIsMaster != bIsMaster) return aIsMaster.compareTo(bIsMaster);
+
+      final aZoom = a.maxZoom as int;
+      final bZoom = b.maxZoom as int;
+      if (aZoom != bZoom) return bZoom.compareTo(aZoom);
+
+      final aArea = (a.maxLat - a.minLat).abs() * (a.maxLon - a.minLon).abs();
+      final bArea = (b.maxLat - b.minLat).abs() * (b.maxLon - b.minLon).abs();
+      return aArea.compareTo(bArea);
+    });
+
+    for (final region in candidateRegions) {
+      if (region.maxZoom < 12) {
+        // Overview packs cannot provide street-level routing
+        _unroutableRegions.add(region.id);
+        continue;
+      }
+
+      final pmtilesFile = File(region.localPmtilesPath!);
+      if (pmtilesFile.existsSync()) {
+        final rgraphPath = region.localRoutingGraphPath ??
+            pmtilesFile.path.replaceAll('.pmtiles', '.rgraph');
+        final rgraphFile = File(rgraphPath);
+
+        if (rgraphFile.existsSync() && rgraphFile.lengthSync() > 100) {
+          try {
+            final jsonStr = await rgraphFile.readAsString();
+            final graph = OfflineRoutingGraph.fromJsonString(jsonStr);
+            _cachedGraphs[region.id] = graph;
+            return graph;
+          } catch (e) {
+            debugPrint('[OnDeviceOfflineRouter] Error loading graph from $rgraphPath: $e');
+            _unroutableRegions.add(region.id);
+          }
+        } else {
+          // Build on demand directly from downloaded PMTiles
+          try {
+            debugPrint('[OnDeviceOfflineRouter] Building on-demand road graph for ${region.id}...');
+            final graph = await RoadGraphBuilder.buildAndSaveFromPmtiles(
+              pmtilesFile,
+              rgraphFile,
+            );
+            _cachedGraphs[region.id] = graph;
+            return graph;
+          } catch (e) {
+            debugPrint('[OnDeviceOfflineRouter] Error building graph on-demand: $e');
+            _unroutableRegions.add(region.id);
           }
         }
       }
     }
 
-    // 3. Fallback scan of offline directory (or test directory) for any existing .rgraph or .pmtiles files
-    Directory? mapsDir;
+    // 3. Fallback scan of offline directory (or test directory / current directory) for any existing .rgraph or .pmtiles files
+    final candidateDirs = <Directory>[];
     if (offlineTilesDirectoryPath != null) {
-      mapsDir = Directory(offlineTilesDirectoryPath!);
+      candidateDirs.add(Directory(offlineTilesDirectoryPath!));
     } else {
       try {
         final docDir = await getApplicationDocumentsDirectory().timeout(const Duration(milliseconds: 300));
-        mapsDir = Directory('${docDir.path}/offline_maps');
-      } catch (_) {
-        mapsDir = Directory.current;
-      }
+        candidateDirs.add(Directory('${docDir.path}/offline_maps'));
+      } catch (_) {}
+      candidateDirs.add(Directory(Directory.systemTemp.path));
+      candidateDirs.add(Directory.current);
     }
 
-    if (mapsDir.existsSync()) {
-      final files = mapsDir.listSync().whereType<File>();
-      for (final file in files) {
+    for (final mapsDir in candidateDirs) {
+      if (mapsDir.existsSync()) {
+        final files = mapsDir.listSync().whereType<File>();
+        for (final file in files) {
         if (file.path.endsWith('.rgraph')) {
           try {
             final jsonStr = await file.readAsString();
@@ -153,6 +192,7 @@ class OnDeviceOfflineRouter implements OfflineRoutingEngine {
               }
             } catch (_) {}
           }
+        }
         }
       }
     }

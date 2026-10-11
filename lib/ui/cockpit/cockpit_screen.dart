@@ -74,6 +74,25 @@ class CockpitScreen extends StatelessWidget {
                           ),
                         );
                       },
+                      isRecording: telemetryService.isRecording,
+                      onToggleRecording: () {
+                        telemetryService.toggleRecording();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              telemetryService.isRecording
+                                  ? 'TRACK RECORDING STARTED'
+                                  : 'TRACK RECORDING PAUSED',
+                            ),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: telemetryService.isRecording
+                                ? AppColors.surfaceContainerHigh
+                                : AppColors.surfaceBright,
+                          ),
+                        );
+                      },
+                      recordedBreadcrumbs: telemetryService.recordedBreadcrumbs,
                     ),
 
                     // 2. Tactical Bento Matrix (Live Biomechanical & Route Metrics)

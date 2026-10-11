@@ -137,6 +137,7 @@ class TelemetryService extends ChangeNotifier {
   Duration _sessionActiveDuration = Duration.zero;
   double _sessionClimbedM = 0.0;
   double _lastTrackedElevation = 0.0;
+  final List<LatLng> _recordedBreadcrumbs = [];
 
   SessionSummary? get lastSessionSummary => _lastSessionSummary;
   void setLastSessionSummaryForTesting(SessionSummary summary) {
@@ -292,6 +293,7 @@ class TelemetryService extends ChangeNotifier {
   RouteModel? get activeRoute => _activeRoute;
   ActivityType get activityType => _activityType;
   bool get isRecording => _isRecording;
+  List<LatLng> get recordedBreadcrumbs => List.unmodifiable(_recordedBreadcrumbs);
   List<RouteModel> get savedOfflineRoutes => List.unmodifiable(_savedOfflineRoutes);
   AppPermissionStatus get permissionStatus => _permissionStatus;
 
@@ -502,6 +504,26 @@ class TelemetryService extends ChangeNotifier {
       _turnEngine.stopAudio();
     }
     _initTelemetryFromRoute(newRoute, initialDistanceKm: 0.0);
+    _savePreferences();
+    notifyListeners();
+  }
+
+  /// Unloads active route from Cockpit HUD so user can free-record or navigate without route constraints
+  void clearActiveRoute() {
+    _activeRoute = null;
+    _simStep = 0;
+    stopSimulation();
+    _turnEngine.resetRoute();
+    _currentData = _currentData.copyWith(
+      totalDistanceKm: 0.0,
+      distanceTraveledKm: 0.0,
+      distanceRemainingKm: 0.0,
+      ascentRemainingM: 0.0,
+      currentGradePercent: 0.0,
+      vamAscentRateMh: 0,
+      isOffRoute: false,
+      crossTrackDistanceM: 0.0,
+    );
     _savePreferences();
     notifyListeners();
   }
@@ -1052,6 +1074,14 @@ class TelemetryService extends ChangeNotifier {
 
     final userGps = LatLng(pos.latitude, pos.longitude);
     _lastKnownGpsPosition = userGps;
+
+    // Record breadcrumb path while recording is engaged
+    if (_isRecording) {
+      if (_recordedBreadcrumbs.isEmpty ||
+          const Distance().as(LengthUnit.Meter, _recordedBreadcrumbs.last, userGps) >= 3.0) {
+        _recordedBreadcrumbs.add(userGps);
+      }
+    }
 
     // Real GPS speed in km/h (speed is in m/s from Geolocator)
     final rawSpeedKmH = pos.speed * 3.6;

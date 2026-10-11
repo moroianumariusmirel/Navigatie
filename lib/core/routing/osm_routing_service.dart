@@ -10,6 +10,7 @@ import '../models/elevation_point.dart';
 import '../models/maneuver_instruction.dart';
 import '../models/waypoint_model.dart';
 import '../navigation/turn_navigation_engine.dart';
+import '../offline/offline_download_service.dart';
 import 'routing_engine.dart';
 
 class OsmRoutingService {
@@ -74,14 +75,18 @@ class OsmRoutingService {
       } catch (routerErr) {
         debugPrint('[OsmRoutingService] Offline road routing error: $routerErr');
 
-        // Check if an offline graph actually covers this region
+        // Check if an offline map actually covers this region
         final start = points.first;
         final destination = points.last;
+        final dlService = OfflineDownloadService();
+        final isCovered = dlService.isLocationCoveredOffline(start) ||
+            dlService.isLocationCoveredOffline(destination);
         final graph = await offlineRouter.getRoutingGraphForArea(start) ??
             await offlineRouter.getRoutingGraphForArea(destination);
 
-        // If an offline map covers the area, surface the real routing error so user/planner knows why it failed
-        if (graph != null) {
+        // If an offline map covers the area or a graph was loaded, surface the real routing error
+        // so the user knows why road routing failed rather than masking it with a straight line.
+        if (isCovered || graph != null) {
           rethrow;
         }
 

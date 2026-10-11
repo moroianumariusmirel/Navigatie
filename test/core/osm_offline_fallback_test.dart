@@ -52,5 +52,22 @@ void main() {
       expect(route.id.startsWith('offline_router'), isTrue,
           reason: 'Must be routed via on-device offline road router');
     });
+
+    test('calculateRoute falls back to straight line only when no offline map covers the area', () async {
+      // Points far away from any downloaded region (e.g., in the ocean / Antarctica)
+      final points = [
+        const LatLng(-75.0, 0.0),
+        const LatLng(-75.1, 0.1),
+      ];
+
+      final route = await OsmRoutingService.calculateRoute(
+        points: points,
+        activityType: ActivityType.hiking,
+        customName: 'Remote Wilderness',
+      );
+
+      expect(route.id.startsWith('offline_calc'), isTrue);
+      expect(route.coordinates.length, equals(2));
+    });
   });
 }
